@@ -13,7 +13,7 @@ export const CONTRACT_CONFIGURED =
 export const IS_RECORD = CONTRACT_ADDRESS.toLowerCase() === RECORD_ADDRESS.toLowerCase();
 
 /** The sha256 of the contract source these bytes were compiled from. */
-export const SOURCE_SHA256 = "99d43462d90ac969a4091d239c25c6d84dd75e3d0d31caae3f7e01786299ef65";
+export const SOURCE_SHA256 = "8215c6681cceb48742f8ff14eef1c435ac6cd025e77563713e5b2403732b384e";
 
 export const REPO_URL = "https://github.com/Hemmy1417/HarvestShield";
 export const SOURCE_URL = `${REPO_URL}/blob/main/contracts/harvestshield.py`;

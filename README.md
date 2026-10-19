@@ -80,7 +80,7 @@ The grace period and the read long stop run from the end of the window or the pu
 | Network | GenLayer Studio Next, chain 61997 |
 | RPC | `https://studio-dev.genlayer.com/api` |
 | Deployment of record | [`0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6`](https://explorer-studio-dev.genlayer.com/address/0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6) |
-| Source | [`contracts/harvestshield.py`](contracts/harvestshield.py), sha256 `99d43462d90ac969a4091d239c25c6d84dd75e3d0d31caae3f7e01786299ef65`, verified byte for byte |
+| Source | [`contracts/harvestshield.py`](contracts/harvestshield.py), sha256 `8215c6681cceb48742f8ff14eef1c435ac6cd025e77563713e5b2403732b384e`, verified byte for byte |
 
 ### Write methods
 
