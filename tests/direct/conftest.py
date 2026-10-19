@@ -510,7 +510,7 @@ def product_params(**over):
          "trigger": "RAIN_BELOW", "threshold_tenths": THRESHOLD, "window_days": DAYS,
          "premium_wei": str(PREMIUM), "payout_wei": str(PAYOUT), "capacity": 5,
          "primary": "OPEN_METEO", "backup": "NASA_POWER", "dispute_clause": CLAUSE,
-         "periods": dict(PERIODS), "replay": True}
+         "periods": dict(PERIODS), "replay": True, "replay_start": START}
     p.update(over)
     return json.dumps(p)
 

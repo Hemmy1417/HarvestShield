@@ -163,14 +163,25 @@ class TestDeciding:
             decide(module, c, yid, "STANDS", v_v="USE_OTHER")
         assert policy(c, yid)["state"] == "CONTESTED"
 
-    def test_a_validator_reading_other_data_disagrees(self, module, c):
+    def test_the_decision_judges_the_recorded_series_without_fetching(self, module, c):
         _, yid = contested(module, c)
         set_now("2026-09-01T10:00:01Z")
-        serve(module, WET, DRY, v_np=VERY_DRY)
+        from conftest import fetches
+        n = len(fetches())
         llm(judge=verdict("USE_OTHER"))
         as_(module, FARMER)
-        with pytest.raises(err(module), match="did not agree"):
-            c.decide_contest(yid)
+        c.decide_contest(yid)
+        assert len(fetches()) == n, "a decision never fetches the datasets again"
+        r = policy(c, yid)["rounds"][0]
+        assert r["digests"] == {k: v["digest"] for k, v in policy(c, yid)["reading"]["summaries"].items()}
+
+    def test_after_a_void_either_side_may_appeal(self, module, c):
+        _, yid = contested(module, c)
+        set_now("2026-09-01T10:00:01Z")
+        decide(module, c, yid, "NO_RELIABLE_READING")
+        assert policy(c, yid)["decision"]["against"] == ["FARMER", "INSURER"]
+        as_(module, FARMER, BOND)
+        assert json.loads(c.appeal(yid, "The NASA series is reliable."))["refused"] is False
 
     @pytest.mark.parametrize("v", ["MAYBE", None])
     def test_a_judgment_without_a_verdict_decides_nothing(self, module, c, v):
@@ -179,8 +190,7 @@ class TestDeciding:
         with pytest.raises(err(module)):
             decide(module, c, yid, v)
 
-    @pytest.mark.parametrize("value", [None, {"verdict": "MAYBE"}, {"verdict": "STANDS"},
-                                       {"verdict": "STANDS", "totals": {"OPEN_METEO": 1}}])
+    @pytest.mark.parametrize("value", [None, {"verdict": "MAYBE"}, {"reason": "no verdict"}, "STANDS"])
     def test_an_agreed_nonsense_decision_settles_nothing(self, module, c, value):
         _, yid = contested(module, c)
         set_now("2026-09-01T10:00:01Z")
@@ -218,7 +228,7 @@ class TestAppeal:
     def test_the_side_the_decision_went_against_appeals(self, module, c):
         _, yid = self.decided(module, c, "STANDS")
         as_(module, INSURER, BOND)
-        assert "went against" in json.loads(c.appeal(yid, "We won, why appeal."))["reason"]
+        assert "best outcome" in json.loads(c.appeal(yid, "We won, why appeal."))["reason"]
         as_(module, FARMER, BOND)
         out = json.loads(c.appeal(yid, "The clause favours NASA here."))
         assert out["refused"] is False and policy(c, yid)["state"] == "APPEALED"

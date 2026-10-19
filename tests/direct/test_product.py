@@ -90,11 +90,23 @@ class TestBuying:
         as_(module, INSURER, PREMIUM)
         assert json.loads(c.buy_policy(pid, "2026-08-01"))["refused"] is True
 
-    def test_a_replay_window_must_be_over_a_week_ago(self, module, c):
+    def test_a_replay_covers_only_the_season_its_insurer_named(self, module, c):
         pid = funded_product(module, c)
+        for start in ("2020-08-01", "2026-07-01"):
+            as_(module, FARMER, PREMIUM)
+            out = json.loads(c.buy_policy(pid, start))
+            assert out["refused"] is True and "covers only the season starting 2026-08-01" in out["reason"]
+
+    def test_a_replay_season_must_be_over_a_week_ago(self, module, c):
+        pid = funded_product(module, c, replay_start="2026-08-20")
         as_(module, FARMER, PREMIUM)
         out = json.loads(c.buy_policy(pid, "2026-08-20"))
         assert out["refused"] is True and "ended at least a week ago" in out["reason"]
+
+    def test_a_replay_product_names_its_season(self, module, c):
+        as_(module, INSURER)
+        with pytest.raises(err(module), match="replay season's start"):
+            c.create_product(product_params(replay_start=""))
 
     def test_a_forward_window_must_start_after_the_purchase(self, module, c):
         pid = funded_product(module, c, replay=False)

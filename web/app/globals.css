@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/*
+ * Forge fire on warm limestone. The page is raw plaster (pumice), every
+ * surface a lighter limestone lifted off it by colour alone, and the one thing
+ * that glows is ember: the primary act on a page and the figures that matter.
+ * Nothing casts a shadow. Three radii: 40px for cards, a full pill for every
+ * control and tag, 100px for inputs. Sulfur is only ever a tag. Violet is only
+ * ever the halftone plate on the cover.
+ *
+ * Type: Bebas Neue (condensed, ultrabold-feeling, positive tracking) for
+ * everything structural and never below 26px; Albert Sans at weight 500 only
+ * for everything else.
+ */
+@theme {
+  --color-ember: #fc5000;
+  --color-ember-deep: #c23e00;
+  --color-plasma: #524ae9;
+  --color-sulfur: #f5f28e;
+  --color-limestone: #f7f6f2;
+  --color-pumice: #e2e2df;
+  --color-grout: #cfcfcb;
+  --color-obsidian: #070607;
+  --color-basalt: #4a4847;
+  --color-ash: #78756f;
+  --color-chalk: #ffffff;
+  --color-moss: #2f6b3a;
+  --color-rust: #9a2f12;
+
+  --font-display: var(--font-bebas), "Bebas Neue", Impact, sans-serif;
+  --font-sans: var(--font-albert), "Albert Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 40px;
+  --radius-plate: 28px;
+  --radius-small: 16px;
+  --radius-input: 100px;
+  --radius-pill: 800px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-pumice);
+}
+
+body {
+  background: var(--color-pumice);
+  color: var(--color-obsidian);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No weight but 500 in body text, anywhere. */
+@layer base {
+  b, strong { font-weight: 500; }
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.94;
+  text-transform: uppercase;
+}
+.type-display { font-size: clamp(64px, 12vw, 172px); }
+.type-heading-3xl { font-size: clamp(52px, 7vw, 96px); line-height: 0.95; }
+.type-heading-2xl { font-size: clamp(44px, 5.5vw, 80px); line-height: 1; }
+.type-heading-lg { font-size: clamp(36px, 4vw, 48px); line-height: 1; }
+.type-heading { font-size: 32px; line-height: 1; }
+.type-subheading { font-size: 26px; line-height: 1.05; }
+.type-caption { font-size: 13px; line-height: 1.35; color: var(--color-basalt); }
+.type-eyebrow { font-size: 14px; color: var(--color-basalt); }
+
+/* Figures: tabular so amounts line up, still Albert Sans. */
+.figure { font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-weight: 400; font-size: 12.5px; letter-spacing: 0; }
+
+/* The dotted rule: separators and the stage track. */
+.dotted-x { background-image: radial-gradient(circle, var(--color-obsidian) 0.9px, transparent 1.2px); background-size: 6px 3px; background-repeat: repeat-x; background-position: left center; height: 3px; }
+.dotted-y { border-left: 1.5px dotted var(--color-obsidian); }
+
+/* The halftone plate: ember dots on plasma, fading to solid ember at the top right. */
+.halftone {
+  background-color: var(--color-plasma);
+  background-image:
+    radial-gradient(circle at 92% 8%, var(--color-ember) 0 22%, transparent 58%),
+    radial-gradient(var(--color-ember) 32%, transparent 34%);
+  background-size: 100% 100%, 11px 11px;
+}
+
+/* Inputs: pills, with the long-text exception a textarea needs. */
+.field {
+  width: 100%;
+  border-radius: var(--radius-input);
+  background: var(--color-limestone);
+  border: 1.5px solid var(--color-grout);
+  padding: 12px 22px;
+  font: inherit;
+  color: var(--color-obsidian);
+  outline: none;
+}
+.field:focus { border-color: var(--color-obsidian); }
+textarea.field { border-radius: 24px; min-height: 108px; resize: vertical; line-height: 1.5; }
+select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--color-obsidian) 50%), linear-gradient(135deg, var(--color-obsidian) 50%, transparent 50%); background-position: calc(100% - 22px) 52%, calc(100% - 16px) 52%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 44px; }
+
+/* Fields on the obsidian act panel: chalk outline pills. */
+.on-dark .field { background: transparent; border-color: rgba(255, 255, 255, 0.55); color: var(--color-chalk); }
+.on-dark .field:focus { border-color: var(--color-chalk); }
+.on-dark .field::placeholder { color: rgba(255, 255, 255, 0.5); }
+.on-dark select.field { background-image: linear-gradient(45deg, transparent 50%, var(--color-chalk) 50%), linear-gradient(135deg, var(--color-chalk) 50%, transparent 50%); }
+.on-dark select.field option { color: var(--color-obsidian); }
+.on-dark .type-caption { color: rgba(255, 255, 255, 0.68); }
+
+input[type="file"].field { padding: 10px 14px; }
+input[type="file"].field::file-selector-button {
+  border: 0; border-radius: var(--radius-pill); background: var(--color-obsidian); color: var(--color-chalk);
+  padding: 6px 14px; margin-right: 12px; font: inherit; cursor: pointer;
+}
+.on-dark input[type="file"].field::file-selector-button { background: var(--color-chalk); color: var(--color-obsidian); }
+
+@layer base {
+  a { color: inherit; }
+}
+::selection { background: var(--color-sulfur); color: var(--color-obsidian); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+}

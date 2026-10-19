@@ -19,6 +19,16 @@ class TestTheReading:
         assert r["other"] == "NASA_POWER" and r["other_triggers"] is True
         assert len(r["series"]["OPEN_METEO"]) == 14 and r["summaries"]["OPEN_METEO"]["complete"]
 
+    def test_one_dataset_alone_waits_for_the_grace_period(self, module, c):
+        gap = list(WET)
+        gap[5] = None
+        _, yid = bought(module, c)
+        serve(module, gap, DRY)
+        set_now("2026-08-24T23:00:00Z")
+        as_(module, STRANGER)
+        with pytest.raises(err(module), match="grace period ends on 2026-08-24"):
+            c.read_index(yid)
+
     def test_the_backup_governs_when_the_primary_misses_a_day(self, module, c):
         gap = list(WET)
         gap[5] = None
@@ -66,6 +76,12 @@ class TestTheReading:
         as_(module, STRANGER)
         with pytest.raises(err(module)):
             c.read_index(yid)
+
+    def test_a_nan_day_is_a_missing_day(self, module, c):
+        bad = list(WET)
+        bad[3] = float("nan")
+        _, yid, out = read(module, c, om=bad, np=DRY)
+        assert out["selected"] == "NASA_POWER"
 
     @pytest.mark.parametrize("value", [None, {}, {"OPEN_METEO": []},
                                        {"OPEN_METEO": [["d", 1.5]] * 14, "NASA_POWER": [["d", 1]] * 14}])
