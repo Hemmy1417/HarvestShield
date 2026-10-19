@@ -48,7 +48,9 @@ bond; one that does not pays it to the other side.
 A side the decision did not give its best outcome may appeal it once, with a
 bond (after a void, either side may); both sides add statements, and the
 appeal round decides afresh on the same recorded series. Nothing waits on anybody
-forever: a reading nobody can obtain voids the policy after a long stop, and a
+forever: a reading nobody can obtain voids the policy after a long stop
+(measured, like the grace period, from the end of the window or the purchase,
+whichever is later), and a
 contest or appeal nobody can decide leaves the standing reading in place and
 returns the bond. All value leaves through a pull ledger.
 """
@@ -79,8 +81,8 @@ MAX_WINDOW_DAYS = 120
 MAX_CAPACITY = 200
 MIN_PERIOD_SECONDS = 600                  # 10 minutes
 MAX_PERIOD_SECONDS = 30 * 86400
-READ_LONG_STOP_DAYS = 45                  # after the window ends
-READ_GRACE_DAYS = 10                      # before one complete dataset may be read alone
+READ_LONG_STOP_DAYS = 45                  # from the window end or the purchase, the later
+READ_GRACE_DAYS = 10                      # likewise, before one complete dataset may be read alone
 LONG_STOP_PERIODS = 3                     # a contest or appeal nobody decides
 BOND_BPS = 1000                           # 10% of the payout
 MAX_THRESHOLD_TENTHS = 50_000             # 5,000 mm
@@ -477,7 +479,8 @@ class HarvestShield(gl.contract.Contract):
             "min_wei": str(MIN_WEI), "min_window_days": MIN_WINDOW_DAYS,
             "max_window_days": MAX_WINDOW_DAYS, "max_capacity": MAX_CAPACITY,
             "min_period_seconds": MIN_PERIOD_SECONDS, "max_period_seconds": MAX_PERIOD_SECONDS,
-            "read_long_stop_days": READ_LONG_STOP_DAYS, "long_stop_periods": LONG_STOP_PERIODS,
+            "read_long_stop_days": READ_LONG_STOP_DAYS, "read_grace_days": READ_GRACE_DAYS,
+            "big_day_tenths": BIG_DAY_TENTHS, "long_stop_periods": LONG_STOP_PERIODS,
             "bond_bps": BOND_BPS, "statement_max": STATEMENT_MAX, "clause_max": CLAUSE_MAX,
         }, sort_keys=True)
 
