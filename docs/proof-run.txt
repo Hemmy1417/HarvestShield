@@ -1,0 +1,183 @@
+HarvestShield live proof on GenLayer Studio Next (chain 61997)
+contract 0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9
+finished 2026-10-19T08:10:11.111Z: 97 checks, 50 transactions, 1 rounds without a majority
+
+ok      P1.create                INSURER   create_product    0x9af0db4f1431ee08d524ec87eb3da7a11b1de251210a279bc81875392e60a6c7
+ok      P1.fund                  INSURER   fund_product      0xed0bd73cffe286a3a4e6b5106088231140810170954e9673314737c223fcfff3
+ok      P1.buy-wrong-premium     FARMER    buy_policy        0x7dbce9bfcb80e36dfe7ec1a6bf17492c3bd02b8a1f4a1d70f70e0efea43bd375
+         returned a refusal: send exactly the premium, 100000000000000000 wei; any value sent is claimable back
+ok      P1.buy-other-season      FARMER    buy_policy        0x29f651245b0718425ba007de937c3f35aaee4acdece46d73710067754172f353
+         returned a refusal: this replay product covers only the season starting 2026-08-01; any value sent is claimable back
+ok      B.buy                    FARMER    buy_policy        0x77f2ee461fc0f778185864e326ee23e9b9981bed0cb9af5b737c0dff903ab030
+ok      B.read                   STRANGER  read_index        0xf8fc0028eccc637e481a2758adfdfadb8527c98cff5820ffde95ea802aea9b7a
+         OPEN_METEO 163.0 mm, triggered false
+ok      B.contest                FARMER    contest           0x1ab01bcda1d8a64eb533caec87a1f406af6d31a6809aff24bdfbcc23cf5ea067
+refused B.lapse-too-early        STRANGER  lapse_contest     0x663f6def594914fb04b65f3edbbb95153d8fcc0fc1a5024caadf5eca6f7d7f6e
+         [EXPECTED] the contest can still be decided; it has not lapsed
+ok      C.buy                    FARMER    buy_policy        0x92fb250c6bd34b95709e341ed9c6b4cc662bf0b26185bd85157034aaebf5b224
+ok      C.read                   STRANGER  read_index        0x63c8bbd3474b692939ed64ce48163836a6fdf30201b6ef0e188f56339135fc73
+         OPEN_METEO 163.0 mm, triggered false
+ok      C.insurer-contests       INSURER   contest           0x5bbbc22cd88e64d05ecb823d6370e075490a78b10d258348fec492d39575b756
+         returned a refusal: the reading went your way; any value sent is claimable back
+ok      C.contest                FARMER    contest           0x2c758adbcd255ab6dff27a1168fb46a64d96f8b1482c1f04a67a724a40ecdc53
+ok      C.answer                 INSURER   answer            0xfb590df6986fad37abc02dc323c75ec70da7e29c3048728d585f08670689068b
+ok      C.decide                 FARMER    decide_contest    0xf604302ae32d298468b508cb8bd983d2241fd0d91d407f03a851d4fc6d1dd270
+         verdict USE_OTHER, outcome true, MOVED
+ok      C.appeal                 INSURER   appeal            0xcd61b68c8cca61ee7ddf846a2b3c2e23f93581270d9f79aa34b059a764b4f58a
+refused C.lapse-too-early        STRANGER  lapse_appeal      0x3437acb2a3341ca0c26bd5e7fb2c5adf41f0e149942cb784308c5a903284b6da
+         [EXPECTED] the appeal can still be decided; it has not lapsed
+ok      A.buy                    FARMER    buy_policy        0xc985fb5b5881f2c2c90252cf20c6dfdb2db2582cdc0aa8dee39bbee4218990a2
+ok      A.read                   STRANGER  read_index        0x6a0efd20ec460610b2fe5bec3a337c1e6c35b24afea596bcf8fac1801a5e1446
+         OPEN_METEO 163.0 mm, triggered false
+ok      A.stranger-contests      STRANGER  contest           0xe28c787050dbaa8ad80ab79340788b63e96d1f1e889d259d685b27916accbe3e
+         returned a refusal: only the farmer or the insurer may contest; any value sent is claimable back
+ok      A.contest                FARMER    contest           0x4432964101091ae71519afc4c5b7ee81352ff786e264d7184e437f1f317d4a88
+refused A.decide-too-early       FARMER    decide_contest    0xee4e25172b7b4563faec98db643cabbdc54a733621bedc499beeb2ab058d4ecb
+         [EXPECTED] the other side may still answer; the response period has not ended
+ok      A.answer                 INSURER   answer            0xdaeb90d7a37aca91b1bd15b56a9f847ded52d26a490433c907051c401d22b0ca
+ok      A.decide                 INSURER   decide_contest    0xe5795e836b3ac051d16c9865f9c3dfeb8c2abc9f667109cfb8ddb10dfb2936b7
+         verdict USE_OTHER, outcome true, MOVED
+ok      A.appeal                 INSURER   appeal            0x0c6404fad4f5b045435e4623421e565dee7b28bfd10eb2c01c46e4311d6d9eb3
+ok      A.answer-appeal          FARMER    answer            0x0ac09703f6cfd9e2d2a6946380273de6fca58b5cbee10b7352adb7b98e89307c
+ok      A.decide-appeal          FARMER    decide_appeal     0x43f7dc71d5af8d377cc3793da9622f4703a1fede4f1e20cadc86292fa8ee5ae0
+         verdict USE_OTHER, outcome true, HELD
+ok      D.buy                    FARMER    buy_policy        0x0b5f89126eaee8834b5e0a04bdab7a39d341f058a4c29e3f42aa4be6be8b4247
+ok      D.read                   STRANGER  read_index        0x33296d52893de9b096e02562fd510ea3abde2a0d45a016aaaca996ef19d5207f
+         OPEN_METEO 163.0 mm, triggered false
+refused D.finalize-too-early     STRANGER  finalize          0x7eec82e956663eb3408b83cc4706a7fbe501ef8ad6fd2073205365cd4b4e391a
+         [EXPECTED] the contest period is still open
+ok      P2.create                INSURER   create_product    0xfcb77c9d30526a0568abffdeacafc50241b4d52232e3b5dac969b6d2867bbf0e
+ok      P2.fund                  INSURER   fund_product      0x6f81bd60aa183fad09b5601dcf2192389ee142e782535bd261c8f6c043e4714b
+ok      E.buy                    FARMER    buy_policy        0x593c5f5686113ba618b5c4ffb7041e1da773b02d1a4056eaa007f5f4ddc9c595
+ok      E.read                   STRANGER  read_index        0x1b9558dd72a5962cf948b5484295907c41c1023836cb7d2104c9eb1a1d065316
+         OPEN_METEO 163.0 mm, triggered true
+ok      E.insurer-contests       INSURER   contest           0xef47c71bab55af8a2cf3007005538ad307583e27782c95de62fffe69c2c9b917
+         returned a refusal: both datasets put the season on the same side of the threshold, so there is nothing to contest; any value sent is claimable back
+ok      P3.create                INSURER   create_product    0xf87c02cc2a30b081415fa6e3bd5a55d87fe7cd1cce4292524c7506d804b10ba7
+ok      P3.fund                  INSURER   fund_product      0xdb05e809252e436b503f1769f4bf4200a36d5f9ebc3c32876770d3f3116fd901
+ok      P3.buy-today             FARMER    buy_policy        0x95840771968464e1aa6a9c710c9ea83e5ae35d33a57fd0b9c5bf4e0136bf8f57
+         returned a refusal: the window must start after the day the policy is bought; any value sent is claimable back
+ok      F.buy                    FARMER    buy_policy        0xfcbdad85b1998ee57af629c6a41fc4b53cd1f4fd6109abf6814cef404beb20eb
+refused F.read-too-early         STRANGER  read_index        0x1bd787fd02f56f1fe82bf3d33c45d13b9da10d23362e2a850350b941065bbb28
+         [EXPECTED] the window has not ended yet
+refused F.void-too-early         STRANGER  void_unread       0xb72001bb28fe06aead44ee1dd8fe91dcef178bd67931a2526d7d9d9f4360b437
+         [EXPECTED] a reading can still be obtained; the long stop has not passed
+refused P3.withdraw-reserved     INSURER   withdraw_capital  0x590331be259bc0bd8dad7c655aab68274eed8f28f5694967cb0275f08016080b
+         [EXPECTED] that is more than the funding no policy has reserved
+ok      P3.withdraw              INSURER   withdraw_capital  0xe720706d0fbf986231ba39bace1228bfe889ef5d5b06062c210ce3455ca567ee
+ok      P3.close                 INSURER   close_product     0xe667d97074a5434b4b0e364ced4c81202e97471980abf468947ce455090929f8
+ok      P3.buy-closed            FARMER    buy_policy        0x92717e132c4cdf23bb52767d3d84bc9f6b0d887e3345dcca228dc16769f6f2e5
+         returned a refusal: that product is closed to new policies; any value sent is claimable back
+ok      E.finalize               STRANGER  finalize          0xb338268704faeab9ff829501dbc58776d13720fe9cfa14469abe7706a6ff83a1
+ok      D.finalize               STRANGER  finalize          0x1a643adbc30574509b99d6862ffffe9f2e800a85a6af3a7f48a0aaed926e7a38
+ok      B.lapse                  STRANGER  lapse_contest     0x5cf4b25b28763f43beb0da527ad7bf0ace7607b8a49f32d27da2b3ab1e1b0a02
+ok      C.lapse                  STRANGER  lapse_appeal      0x35e16d3488c5db139e415e7ae8c1a269fb6fd76c8ef3148ade6815d233dff58c
+ok      draw.FARMER              FARMER    claim             0x3a508d5c657693a2d628f7624cc4ff5200e6a4a211acca9da416d91b3d070f13
+ok      draw.INSURER             INSURER   claim             0xf52ca2ce05470e1fd291b5615d7e7e7af9267b8c1a8152bdf9abc6805d628347
+
+rounds without a majority (nothing recorded; asked again):
+  A.decide-appeal 0x71b878ac70068fdbd2dae424bef4ae7799f5844df3f265baf2f3107b29d519ac
+
+checks passed:
+  the deployment runs this rule set
+  P1.create failed: {"product_id": "pr-0001"}
+  P1.fund failed: {"refused": false, "product_id": "pr-0001", "funded_wei": "4000000000000000000"}
+  P1 is funded
+  P1.buy-wrong-premium failed: {"refused": true, "reason": "send exactly the premium, 100000000000000000 wei; any value sent is claimable back"}
+  a wrong premium is refused in words
+  P1.buy-other-season failed: {"refused": true, "reason": "this replay product covers only the season starting 2026-08-01; any value sent is claimable back"}
+  a replay covers only the season its insurer named
+  B.buy failed: {"refused": false, "policy_id": "po-00001", "window_start": "2026-08-01", "window_end": "2026-08-14"}
+  B: the farmer buys the policy
+  B.read failed: {"policy_id": "po-00001", "selected": "OPEN_METEO", "total_tenths": 1630, "triggered": false, "contest_ends": "2026-10-19T07:31:25Z"}
+  B: both datasets were read and recorded in full
+  B: the primary dataset governs and reads no drought, the backup reads one
+  B.contest failed: {"refused": false, "policy_id": "po-00001", "response_ends": "2026-10-19T07:32:10Z"}
+  B: the farmer contests the reading with the bond
+  B.lapse-too-early should have been refused
+  B.lapse-too-early refusal should say "has not lapsed", said "[EXPECTED] the contest can still be decided; it has not lapsed"
+  C.buy failed: {"refused": false, "policy_id": "po-00002", "window_start": "2026-08-01", "window_end": "2026-08-14"}
+  C: the farmer buys the policy
+  C.read failed: {"policy_id": "po-00002", "selected": "OPEN_METEO", "total_tenths": 1630, "triggered": false, "contest_ends": "2026-10-19T07:34:11Z"}
+  C: both datasets were read and recorded in full
+  C: the primary dataset governs and reads no drought, the backup reads one
+  C.insurer-contests failed: {"refused": true, "reason": "the reading went your way; any value sent is claimable back"}
+  C: the side the reading favoured cannot contest it
+  C.contest failed: {"refused": false, "policy_id": "po-00002", "response_ends": "2026-10-19T07:35:33Z"}
+  C.answer failed: {"policy_id": "po-00002", "answered": true}
+  C.decide failed: {"policy_id": "po-00002", "verdict": "USE_OTHER", "outcome": true, "contest": "MOVED", "appeal_ends": "2026-10-19T07:36:49Z"}
+  C.appeal failed: {"refused": false, "policy_id": "po-00002", "evidence_ends": "2026-10-19T07:37:38Z"}
+  C: a side the decision left short of its best appeals
+  C.lapse-too-early should have been refused
+  C.lapse-too-early refusal should say "has not lapsed", said "[EXPECTED] the appeal can still be decided; it has not lapsed"
+  A.buy failed: {"refused": false, "policy_id": "po-00003", "window_start": "2026-08-01", "window_end": "2026-08-14"}
+  A: the farmer buys the policy
+  A.read failed: {"policy_id": "po-00003", "selected": "OPEN_METEO", "total_tenths": 1630, "triggered": false, "contest_ends": "2026-10-19T07:39:35Z"}
+  A: both datasets were read and recorded in full
+  A: the primary dataset governs and reads no drought, the backup reads one
+  A.stranger-contests failed: {"refused": true, "reason": "only the farmer or the insurer may contest; any value sent is claimable back"}
+  A: a stranger cannot contest
+  A.contest failed: {"refused": false, "policy_id": "po-00003", "response_ends": "2026-10-19T07:41:00Z"}
+  A.decide-too-early should have been refused
+  A.decide-too-early refusal should say "may still answer", said "[EXPECTED] the other side may still answer; the response period has not ended"
+  A.answer failed: {"policy_id": "po-00003", "answered": true}
+  A.decide failed: {"policy_id": "po-00003", "verdict": "USE_OTHER", "outcome": true, "contest": "MOVED", "appeal_ends": "2026-10-19T07:43:01Z"}
+  A: code turned the verdict into the outcome the rules define
+  A: the bond went where the moved rule says
+  A.appeal failed: {"refused": false, "policy_id": "po-00003", "evidence_ends": "2026-10-19T07:44:36Z"}
+  A.answer-appeal failed: {"policy_id": "po-00003", "answered": true}
+  A.decide-appeal failed: {"policy_id": "po-00003", "verdict": "USE_OTHER", "outcome": true, "appeal": "HELD"}
+  A: the appeal settles the policy and every wei is accounted for
+  A: both decisions judged the series the reading recorded
+  D.buy failed: {"refused": false, "policy_id": "po-00004", "window_start": "2026-08-01", "window_end": "2026-08-14"}
+  D: the farmer buys the policy
+  D.read failed: {"policy_id": "po-00004", "selected": "OPEN_METEO", "total_tenths": 1630, "triggered": false, "contest_ends": "2026-10-19T07:49:02Z"}
+  D: both datasets were read and recorded in full
+  D: the primary dataset governs and reads no drought, the backup reads one
+  D.finalize-too-early should have been refused
+  D.finalize-too-early refusal should say "contest period is still open", said "[EXPECTED] the contest period is still open"
+  P2.create failed: {"product_id": "pr-0002"}
+  P2.fund failed: {"refused": false, "product_id": "pr-0002", "funded_wei": "1000000000000000000"}
+  P2 is funded
+  E.buy failed: {"refused": false, "policy_id": "po-00005", "window_start": "2026-08-01", "window_end": "2026-08-14"}
+  E: the farmer buys the policy
+  E.read failed: {"policy_id": "po-00005", "selected": "OPEN_METEO", "total_tenths": 1630, "triggered": true, "contest_ends": "2026-10-19T07:52:48Z"}
+  E: below 200 mm on the selected dataset, the drought cover triggers
+  E.insurer-contests failed: {"refused": true, "reason": "both datasets put the season on the same side of the threshold, so there is nothing to contest; any value sent is claimable back"}
+  E: with both datasets below the threshold there is nothing to contest
+  P3.create failed: {"product_id": "pr-0003"}
+  P3.fund failed: {"refused": false, "product_id": "pr-0003", "funded_wei": "1000000000000000000"}
+  P3 is funded
+  P3.buy-today failed: {"refused": true, "reason": "the window must start after the day the policy is bought; any value sent is claimable back"}
+  P3: a forward window must start after the day of purchase
+  F.buy failed: {"refused": false, "policy_id": "po-00006", "window_start": "2026-10-20", "window_end": "2026-11-02"}
+  F: the farmer buys the policy
+  F.read-too-early should have been refused
+  F.read-too-early refusal should say "window has not ended", said "[EXPECTED] the window has not ended yet"
+  F.void-too-early should have been refused
+  F.void-too-early refusal should say "long stop has not passed", said "[EXPECTED] a reading can still be obtained; the long stop has not passed"
+  P3.withdraw-reserved should have been refused
+  P3.withdraw-reserved refusal should say "more than the funding no policy has reserved", said "[EXPECTED] that is more than the funding no policy has reserved"
+  P3.withdraw failed: {"product_id": "pr-0003", "funded_wei": "500000000000000000"}
+  P3.close failed: {"product_id": "pr-0003", "open": false}
+  P3.buy-closed failed: {"refused": true, "reason": "that product is closed to new policies; any value sent is claimable back"}
+  P3: a closed product sells nothing
+  E.finalize failed: {"policy_id": "po-00005", "state": "SETTLED", "paid_to_farmer": true}
+  E: the payout goes to the farmer
+  P2: the payout came out of the product's funding
+  D.finalize failed: {"policy_id": "po-00004", "state": "SETTLED", "paid_to_farmer": false}
+  D: an uncontested reading settles; no payout, premium to the insurer
+  B.lapse failed: {"policy_id": "po-00001", "state": "SETTLED"}
+  B: an undecided contest lapses, the reading stands, the bond returns
+  C.lapse failed: {"policy_id": "po-00002", "state": "SETTLED"}
+  C: an undecided appeal lapses on the decision, the bond returns
+  draw.FARMER failed: {"claimed_wei": "3000000000000000000"}
+  FARMER's ledger is empty after drawing
+  draw.INSURER failed: {"claimed_wei": "1150000000000000000"}
+  INSURER's ledger is empty after drawing
+  every write the contract has was sent
+
+observed (not asserted):
+  C: the validators found USE_OTHER
+  A: the validators found USE_OTHER
+  A: the appeal found USE_OTHER (HELD)
