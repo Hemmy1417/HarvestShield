@@ -32,13 +32,19 @@ reading.
 The side the reading goes against may CONTEST it, with a bond, but only when
 the two datasets put the season on opposite sides of the threshold. If they
 agree there is nothing to decide and the contest is refused. The other side
-answers within a response period. Then a round under consensus on the two
-series the reading recorded, never a fresh fetch, so the decision judges
-exactly the data the reading agreed: code computes what can be computed
-(totals, daily differences, the wettest days, missing days), and the model is
-asked one question, in the words of the policy's own dispute clause and both
-parties' statements: does the selected reading STAND, should the OTHER dataset
-govern, or is there NO_RELIABLE_READING? Validators must agree on that answer
+answers within a response period. While a contest or an appeal is open,
+either side may file EVIDENCE about what happened on the ground: photographs
+of the field, which this contract stores and hashes itself, and public web
+pages (a weather service bulletin, a drought declaration, a satellite
+vegetation report), which every validator fetches when the page is filed and
+must read alike, so the record holds what the page said at that moment. Then a
+round under consensus on what was recorded, never a fresh fetch: code computes
+what can be computed from the two series (totals, daily differences, the
+wettest days, missing days); each validator reads the photographs without
+being told what anybody claims; and the model is asked one question, in the
+words of the policy's own dispute clause, weighing the two readings against
+the evidence and both parties' statements: does the selected reading STAND,
+should the OTHER dataset govern, or is there NO_RELIABLE_READING? Validators must agree on that answer
 exactly. Code then turns it into money: the governing total against the
 threshold pays the farmer or releases the reserve; no reliable reading voids
 the policy, returning the premium to the farmer and the reserve to the
@@ -93,6 +99,18 @@ LINE_MAX = 200
 LONG_MAX = 2_000
 BIG_DAY_TENTHS = 100                      # a day the datasets differ by 10 mm or more
 
+# Evidence for a contest or an appeal.
+EVIDENCE_PER_SIDE = {"PHOTO": 2, "PAGE": 2}   # of each kind, per side, per contest or appeal
+MAX_IMAGE_BYTES = 400_000
+PNG_RAW_MAX = 64 * 1024 * 1024       # the most a PNG's pixel data may inflate to
+PNG_TEXT_MAX = 1024 * 1024           # the most a file's compressed profile and notes may inflate to
+MAX_IMAGE_SIDE = 8192                # pixels, either way
+JPEG_SEGMENTS_MAX = 2048             # segments and scans in one JPEG
+PAGE_EXCERPT_CHARS = 4_000
+PAGE_MIN_CHARS = 200
+URL_MAX = 300
+CAPTION_MAX = 200
+
 SOURCES = ("OPEN_METEO", "NASA_POWER")
 SOURCE_NAMES = {
     "OPEN_METEO": "Open-Meteo historical archive (ERA5 reanalysis)",
@@ -136,7 +154,7 @@ def _clean(value, limit: int) -> str:
     return " ".join(text.split())[:limit]
 
 
-_FENCE_END = re.compile(r"END (CLAUSE|STATEMENT|REASON|DATA|POLICY)")
+_FENCE_END = re.compile(r"END (CLAUSE|STATEMENT|REASON|DATA|POLICY|PAGE|PHOTO)")
 
 
 def _defuse(text: str) -> str:
@@ -195,6 +213,390 @@ def _day(text, what: str) -> date:
         return date.fromisoformat(str(text).strip())
     except Exception:
         _refuse(f"{what} must be a date written YYYY-MM-DD")
+
+
+def _image_problem(data: bytes) -> str:
+    """Why these bytes are not an image a decoder opens, or "".
+
+    The contract cannot look at a picture, but it can read a file the way a
+    decoder does up to the point where pixels begin, and refuse one a
+    decoder would stop on. A PNG is checked whole: every chunk against its
+    checksum, the chunks a decoder reads before pixels against their sizes,
+    and the pixel data inflated and measured against the size the header
+    declares. A JPEG is walked segment by segment: its tables, its frame and
+    each scan must be well formed and refer only to what the file defines.
+    What is left unchecked is the compressed picture inside a JPEG's scans,
+    which decoders read through even when it is noise."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        why = _png_problem(data)
+        return f"that PNG is not one a decoder opens: {why}" if why else ""
+    if data[:4] == b"\xff\xd8\xff\xe0" and data[6:11] == b"JFIF\x00":
+        why = _jpeg_problem(data)
+        return f"that JPEG is not one a decoder opens: {why}" if why else ""
+    return "the runtime reads PNG and JFIF JPEG only; re-save the photograph and file it again"
+
+
+def _be(data: bytes, at: int, size: int) -> int:
+    return int.from_bytes(data[at:at + size], "big")
+
+
+# Bit depths a PNG may carry for each colour type, and samples per pixel.
+_PNG_KINDS = {0: ((1, 2, 4, 8, 16), 1), 2: ((8, 16), 3), 3: ((1, 2, 4, 8), 1),
+              4: ((8, 16), 2), 6: ((8, 16), 4)}
+# Chunks a decoder reads before pixels and may skip, and the one size each has.
+_PNG_SIZES = {b"gAMA": 4, b"cHRM": 32, b"sRGB": 1, b"pHYs": 9, b"tIME": 7}
+PNG_TEXT_MAX = 1024 * 1024           # the most a file's compressed profile and notes may inflate to
+
+
+def _png_packed(body: bytes, at: int, room: int) -> int:
+    """How much a compressed profile or note unpacks to, or -1 when a decoder
+    would not unpack it: the method it names is not the one there is, it
+    does not inflate, or it inflates past the room the file has left."""
+    if at >= len(body) or body[at]:
+        return -1
+    try:
+        stream = zlib.decompressobj()
+        size = len(stream.decompress(body[at + 1:], room + 1))
+        return size if stream.eof and size <= room else -1
+    except Exception:
+        return -1
+
+
+def _png_note(body: bytes, room: int) -> int:
+    """The same for an international text chunk: a keyword, a flag saying
+    whether the text is compressed, and if it is, text that unpacks. Plain
+    text unpacks to nothing."""
+    key = body.find(b"\x00", 0, 80)
+    if key < 1 or key + 2 >= len(body) or body[key + 1] > 1:
+        return -1
+    if not body[key + 1]:
+        return 0
+    lang = body.find(b"\x00", key + 3)
+    text = body.find(b"\x00", lang + 1) if lang >= 0 else -1
+    return _png_packed(body[key + 2:key + 3] + body[text + 1:], 0, room) if text >= 0 else -1
+
+
+# Adam7: where each pass starts and how far apart its pixels are.
+_PNG_PASSES = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4),
+               (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2))
+
+
+def _png_problem(data: bytes) -> str:
+    end, at, seen_data, closed_data, palette, colours = len(data), 8, False, False, False, 0
+    width = height = bits = samples = interlace = kind = 0
+    packed = []
+    first, room = True, PNG_TEXT_MAX
+    while True:
+        if at + 12 > end:
+            return "it ends before its closing chunk"
+        size, name = _be(data, at, 4), data[at + 4:at + 8]
+        if at + 12 + size > end:
+            return "a chunk runs past the end of the file"
+        body = data[at + 8:at + 8 + size]
+        if zlib.crc32(name + body) & 0xffffffff != _be(data, at + 8 + size, 4):
+            return "a chunk fails its checksum"
+        if first != (name == b"IHDR"):
+            return "its header chunk is missing or out of place"
+        first = False
+        if name == b"IHDR":
+            if size != 13:
+                return "its header is the wrong size"
+            width, height, bits, kind = _be(body, 0, 4), _be(body, 4, 4), body[8], body[9]
+            interlace = body[12]
+            if not width or not height or kind not in _PNG_KINDS \
+                    or bits not in _PNG_KINDS[kind][0] or body[10] or body[11] \
+                    or interlace not in (0, 1):
+                return "its header describes no image a decoder knows"
+            if width > MAX_IMAGE_SIDE or height > MAX_IMAGE_SIDE:
+                return "it has more pixels than a round reads"
+            samples = _PNG_KINDS[kind][1]
+        elif name == b"PLTE":
+            if seen_data or palette or not size or size % 3 or size > 768:
+                return "its palette is malformed or out of place"
+            palette, colours = True, size // 3
+        elif name == b"IDAT":
+            if closed_data:
+                return "its image data is split by another chunk"
+            seen_data = True
+            packed.append(body)
+        elif name == b"IEND":
+            if at + 12 != end:
+                return "it does not end at its closing chunk"
+            break
+        elif not name[:1].islower() or not name.isalpha():
+            return "it carries a chunk a decoder must understand and does not"
+        elif name == b"tRNS":
+            if size != ({0: 2, 2: 6}.get(kind) or (1 <= size <= colours and size)):
+                return "a chunk a decoder reads is the wrong size"
+        elif size != _PNG_SIZES.get(name, size):
+            return "a chunk a decoder reads is the wrong size"
+        elif name in (b"acTL", b"fcTL", b"fdAT"):
+            return "it is an animation, and a round reads a still image"
+        elif name in (b"iCCP", b"zTXt", b"iTXt"):
+            key = body.find(b"\x00", 0, 80)
+            used = _png_note(body, room) if name == b"iTXt" \
+                else _png_packed(body, key + 1, room) if key >= 1 else -1
+            if used < 0:
+                return "a compressed chunk a decoder reads does not unpack"
+            room -= used                    # one allowance for the whole file
+        if seen_data and name != b"IDAT":
+            closed_data = True
+        at += 12 + size
+    if not seen_data or (kind == 3 and not palette):
+        return "it holds no image data" if not seen_data else "it has no palette"
+
+    # The rows the pixel data must inflate to: (how many, bytes in each).
+    def rows(w: int, h: int) -> tuple:
+        return (h, 1 + (w * samples * bits + 7) // 8)
+
+    if interlace:
+        plan = [rows((width - x0 + dx - 1) // dx, (height - y0 + dy - 1) // dy)
+                for x0, y0, dx, dy in _PNG_PASSES if width > x0 and height > y0]
+    else:
+        plan = [rows(width, height)]
+    if sum(n * size for n, size in plan) > PNG_RAW_MAX:
+        return "it has more pixels than a round reads"
+    stream, feed = zlib.decompressobj(), b"".join(packed)
+    step, left, need = 0, plan[0][0], 0
+    try:
+        while True:
+            out = stream.decompress(feed, 1 << 20)
+            i = 0
+            while i < len(out):
+                if not need:
+                    while not left:
+                        step += 1
+                        if step == len(plan):
+                            return "its image data is longer than its header says"
+                        left = plan[step][0]
+                    if out[i] > 4:
+                        return "a row of its image data names no filter"
+                    left, need = left - 1, plan[step][1]
+                take = min(need, len(out) - i)
+                i, need = i + take, need - take
+            feed = stream.unconsumed_tail
+            if stream.eof or not (out or feed):
+                break
+    except Exception:
+        return "its image data does not inflate"
+    if not stream.eof or stream.unused_data or need or left or step != len(plan) - 1:
+        return "its image data is not the size its header says"
+    return ""
+
+
+# Application data a decoder parses, and the least of it there must be.
+_JPEG_APPS = ((0xe0, b"JFIF\x00", 14), (0xe2, b"ICC_PROFILE\x00", 14), (0xee, b"Adobe", 12))
+
+
+def _jpeg_problem(data: bytes) -> str:
+    end, at = len(data), 2
+    if data[-2:] != b"\xff\xd9":
+        return "it does not end at its closing marker"
+    quant, huff, parts, progressive, scans, whole, pieces = set(), set(), {}, False, 0, False, 0
+    while True:
+        if at + 2 > end or data[at] != 0xff:
+            return "a segment is missing where one must begin"
+        while data[at + 1] == 0xff and at + 2 < end:        # fill bytes before a marker
+            at += 1
+        mark = data[at + 1]
+        if mark == 0xd9:
+            if at + 2 != end or not scans:
+                return "it closes before it holds a scan" if not scans \
+                    else "it carries data after its closing marker"
+            return ""
+        size, pieces = _be(data, at + 2, 2), pieces + 1
+        if size < 2 or at + 2 + size > end - 2:
+            return "a segment runs past the end of the file"
+        if pieces > JPEG_SEGMENTS_MAX:
+            return "it is cut into more segments than a round reads"
+        body = data[at + 4:at + 2 + size]
+        if mark == 0xdb:                                    # quantisation tables
+            i = 0
+            while i < len(body):
+                wide, ident = body[i] >> 4, body[i] & 15
+                if wide > 1 or ident > 3:
+                    return "a quantisation table is malformed"
+                i += 1 + 64 * (wide + 1)
+                quant.add(ident)
+            if i != len(body):
+                return "a quantisation table is malformed"
+        elif mark == 0xc4:                                  # Huffman tables
+            i = 0
+            while i + 17 <= len(body):
+                kind, ident = body[i] >> 4, body[i] & 15
+                count, code = sum(body[i + 1:i + 17]), 0
+                for length in range(1, 17):         # more codes than a length can hold
+                    code = (code + body[i + length]) << 1
+                    if code >= 2 << length:
+                        count = 257
+                # A value no 8-bit picture can hold: a decoder stops on it.
+                if kind > 1 or ident > 3 or count > 256 \
+                        or any(s & 15 > 10 if kind else s > 11
+                               for s in body[i + 17:i + 17 + count]):
+                    return "a Huffman table is malformed"
+                i += 17 + count
+                huff.add((kind, ident))
+            if i != len(body):
+                return "a Huffman table is malformed"
+        elif mark in (0xc0, 0xc1, 0xc2):                    # the frame
+            if parts or len(body) < 6:
+                return "it declares its frame twice or not at all"
+            count = body[5]
+            if body[0] != 8 or not _be(body, 1, 2) or not _be(body, 3, 2) \
+                    or count not in (1, 3, 4) or len(body) != 6 + 3 * count:
+                return "its frame describes no image a decoder knows"
+            if _be(body, 1, 2) > MAX_IMAGE_SIDE or _be(body, 3, 2) > MAX_IMAGE_SIDE:
+                return "it has more pixels than a round reads"
+            for k in range(count):
+                ident, sampling, table = body[6 + 3 * k:9 + 3 * k]
+                if not 1 <= sampling >> 4 <= 4 or not 1 <= sampling & 15 <= 4 or table > 3 \
+                        or ident in parts:
+                    return "its frame describes no image a decoder knows"
+                parts[ident] = (table, sampling >> 4, sampling & 15)
+            # Every component's sampling divides the largest, across and down.
+            across, down = max(p[1] for p in parts.values()), max(p[2] for p in parts.values())
+            if any(across % p[1] or down % p[2] for p in parts.values()):
+                return "its frame describes no image a decoder knows"
+            progressive = mark == 0xc2
+        elif mark == 0xdd:                                  # restart interval
+            if size != 4:
+                return "its restart interval is malformed"
+        elif mark == 0xda:                                  # a scan
+            if not parts or not body:
+                return "a scan comes before its frame"
+            if whole:
+                return "it carries a scan after its picture is complete"
+            count = body[0]
+            if not 1 <= count <= len(parts) or len(body) != 4 + 2 * count:
+                return "a scan is malformed"
+            first, last = body[1 + 2 * count], body[2 + 2 * count]
+            high, low = body[3 + 2 * count] >> 4, body[3 + 2 * count] & 15
+            if first > last or last > 63 or low > 13 or high not in (0, low + 1) \
+                    or (not progressive and (first, last, high, low) != (0, 63, 0, 0)):
+                return "a scan is malformed"
+            # A progressive pass is the lowest term alone, or the later terms
+            # of one component alone.
+            if progressive and (last if not first else count > 1):
+                return "a scan is malformed"
+            # A scan names components once each, in the order the frame did.
+            named, order = [body[1 + 2 * k] for k in range(count)], list(parts)
+            where = [order.index(i) for i in named if i in parts]
+            if any(b <= a for a, b in zip(where, where[1:])):
+                return "a scan is malformed"
+            # Components read together share a unit of at most ten blocks.
+            if count > 1 and sum(parts[i][1] * parts[i][2] for i in named if i in parts) > 10:
+                return "a scan is malformed"
+            # A sequential picture is complete once one scan has read all of it.
+            whole = not progressive and count == len(parts)
+            for k in range(count):
+                ident, tables = body[1 + 2 * k], body[2 + 2 * k]
+                if ident not in parts or parts[ident][0] not in quant:
+                    return "a scan uses a table the file never defines"
+                refining = progressive and body[3 + 2 * count] >> 4
+                if not refining or first:
+                    need = [(0, tables >> 4)] if not first else []
+                    need += [(1, tables & 15)] if last else []
+                    if any(table not in huff for table in need):
+                        return "a scan uses a table the file never defines"
+            # The compressed picture: run to the next marker that is one.
+            at += 2 + size
+            while True:
+                at = data.find(b"\xff", at)
+                if at < 0 or at + 1 >= end:
+                    return "a scan runs past the end of the file"
+                if data[at + 1] == 0 or 0xd0 <= data[at + 1] <= 0xd7:
+                    at += 2
+                else:
+                    break                   # a marker, or fill before one
+            scans += 1
+            continue
+        elif not (0xe0 <= mark <= 0xef or mark == 0xfe):    # not application data or a comment
+            return "it uses a kind of JPEG a decoder may not read"
+        elif mark in (0xe0, 0xe2, 0xee) and any(
+                mark == m and body[:len(head)] == head and len(body) < least
+                for m, head, least in _JPEG_APPS):
+            return "application data a decoder reads is cut short"
+        at += 2 + size
+
+
+
+
+def _readings(out, count: int) -> dict:
+    """The answer to one image-reading prompt, as one row for each image
+    number it speaks to. A row is also read when it is the answer itself, or
+    sits under "images" with no list around it; with one image a row need
+    not carry its number. A row that names another image is not read as
+    this one, and with two images the first row to name a number is taken."""
+    if not isinstance(out, dict):
+        return {}
+    rows = out.get("images")
+    if isinstance(rows, dict):
+        rows = [rows]
+    if not isinstance(rows, list):
+        rows = [out] if "readable" in out or "shows" in out else []
+    found, numbered = {}, False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if count == 1:
+            if row.get("n") in (1, "1") and not numbered:
+                found[1], numbered = row, True
+            elif row.get("n") is None:
+                found.setdefault(1, row)
+            continue
+        for n in range(1, count + 1):
+            if row.get("n") in (n, str(n)):
+                found.setdefault(n, row)
+    return found
+
+
+def _answers_all(out, count: int) -> bool:
+    """Whether an answer settles its prompt: it says of every image whether
+    it was read, or it says of some image that it was not."""
+    said = [_readings(out, count).get(n, {}).get("readable") for n in range(1, count + 1)]
+    return False in [x for x in said if isinstance(x, bool)] \
+        or all(isinstance(x, bool) for x in said)
+
+
+def _llm_object(raw, what: str) -> dict:
+    """A model's answer, or a refusal in words. Never a crash, and never a
+    silent default that a later rule would read as agreement."""
+    if isinstance(raw, dict):
+        return raw
+    text = str(raw)
+    try:
+        value = json.loads(text)
+    except Exception:
+        # An object followed by prose has still answered: take the outermost
+        # object rather than lose a node's vote over punctuation.
+        start, end = text.find("{"), text.rfind("}")
+        try:
+            value = json.loads(text[start:end + 1]) if 0 <= start < end else None
+        except Exception:
+            value = None
+    if not isinstance(value, dict):
+        raise gl.vm.UserError(f"{ERROR_LLM} {what} must be a JSON object")
+    return value
+
+
+
+
+def _public_link(value) -> str:
+    """A public https page, or a refusal. Nothing private, nothing local."""
+    url = str(value or "").strip()
+    if len(url) > URL_MAX or not url.startswith("https://") or any(c.isspace() for c in url) or "@" in url:
+        _refuse(f"a page must be a public https link of at most {URL_MAX} characters")
+    host = url[8:].split("/")[0].split(":")[0].lower()
+    if "." not in host or host in ("localhost",) or host.replace(".", "").isdigit():
+        _refuse("a page must be on a public host")
+    return url
+
+
+def _page_text(url: str) -> str:
+    """A page as a node reads it: its text, whitespace folded, the first
+    PAGE_EXCERPT_CHARS characters."""
+    text = gl.nondet.web.render(url, mode="text")
+    return " ".join(str(text or "").split())[:PAGE_EXCERPT_CHARS]
 
 
 # ── the weather datasets: URLs built here, parsed here ───────────────────────
@@ -348,10 +750,12 @@ class HarvestShield(gl.contract.Contract):
     index: gl.storage.TreeMap[str, str]          # "key|n" -> id
     rounds: gl.storage.TreeMap[str, str]         # "yid|n" -> round json
     ledger: gl.storage.TreeMap[str, str]         # address -> {"claimable","claimed"}
+    evidence: gl.storage.TreeMap[str, str]       # eid -> evidence json (a page carries its excerpt)
+    evidence_bytes: gl.storage.TreeMap[str, bytes]  # eid -> photograph bytes
 
     def __init__(self):
         self.deployer = str(gl.message.sender_address)
-        for k in ("product", "policy", "round", "settled", "paid_out", "held_wei", "paid_wei"):
+        for k in ("product", "policy", "round", "settled", "paid_out", "held_wei", "paid_wei", "evidence"):
             self.counters[k] = "0"
 
     # ── internals ────────────────────────────────────────────────────────────
@@ -519,8 +923,23 @@ class HarvestShield(gl.contract.Contract):
         y = self._policy(yid)
         y["rounds"] = [json.loads(self.rounds[f"{y['policy_id']}|{n}"])
                        for n in range(1, int(y["round_count"]) + 1)]
+        y["evidence"] = [json.loads(self.evidence[e]) for e in y["evidence_ids"]]
         y["bond_wei"] = str(self._bond(y))
         return json.dumps(y, sort_keys=True)
+
+    @gl.public.view
+    def get_evidence(self, eid: str) -> str:
+        raw = self.evidence.get(str(eid))
+        if not raw:
+            _refuse(f"there is no evidence {eid}")
+        return raw
+
+    @gl.public.view
+    def get_image(self, eid: str) -> bytes:
+        data = self.evidence_bytes.get(str(eid))
+        if data is None:
+            _refuse(f"{eid} is not a photograph held by this contract")
+        return data
 
     @gl.public.view
     def get_balance(self, addr: str) -> str:
@@ -667,7 +1086,7 @@ class HarvestShield(gl.contract.Contract):
              "contest": None, "appeal": None, "decision": None, "round_count": 0,
              "contest_ends": "", "response_ends": "", "decision_long_stop": "",
              "appeal_ends": "", "settled_at": "", "settled_how": "", "paid_to_farmer": False,
-             "events": []}
+             "evidence_ids": [], "events": []}
         self._event(y, "BOUGHT")
         self._save(y)
         self._push("policies", yid)
@@ -855,6 +1274,134 @@ class HarvestShield(gl.contract.Contract):
         self._save(y)
         return json.dumps({"policy_id": yid, "answered": True})
 
+    # ── evidence ─────────────────────────────────────────────────────────────
+
+    def _filing(self, y: dict, kind: str) -> tuple:
+        """Who files, and into which stage, while a contest or an appeal is
+        open; each side has its own allowance, so neither can use up the
+        other's."""
+        role = self._role(y, self._sender())
+        if not role:
+            _refuse("only the farmer or the insurer files evidence")
+        now = _now()
+        if y["state"] == "CONTESTED" and now <= _parse_iso(y["response_ends"]):
+            stage = "CONTEST"
+        elif y["state"] == "APPEALED" and now <= _parse_iso(y["appeal"]["evidence_ends"]):
+            stage = "APPEAL"
+        else:
+            _refuse("evidence is filed while a contest or an appeal is open for answers")
+        mine = [e for e in y["evidence_ids"]
+                if (lambda it: it["by"] == role and it["stage"] == stage and it["kind"] == kind)(
+                    json.loads(self.evidence[e]))]
+        if len(mine) >= EVIDENCE_PER_SIDE[kind]:
+            _refuse(f"each side files at most {EVIDENCE_PER_SIDE[kind]} "
+                    f"{'photographs' if kind == 'PHOTO' else 'pages'} for a {stage.lower()}")
+        return role, stage
+
+    def _store(self, y: dict, item: dict) -> str:
+        n = self._bump("evidence")
+        eid = f"ev-{n:05d}"
+        item.update({"evidence_id": eid, "policy_id": y["policy_id"], "at": _iso(_now())})
+        self.evidence[eid] = json.dumps(item, sort_keys=True)
+        y["evidence_ids"].append(eid)
+        self._event(y, f"{item['kind']}_FILED", eid)
+        self._save(y)
+        return eid
+
+    @gl.public.write
+    def file_photo(self, yid: str, caption: str, data: bytes) -> str:
+        """A photograph of the field, held and hashed by this contract, so
+        every validator reads the same bytes."""
+        y = self._policy(yid)
+        role, stage = self._filing(y, "PHOTO")
+        if not data:
+            _refuse("that photograph is empty")
+        if len(data) > MAX_IMAGE_BYTES:
+            _refuse(f"a photograph is at most {MAX_IMAGE_BYTES:,} bytes; this one is {len(data):,}")
+        problem = _image_problem(bytes(data))
+        if problem:
+            _refuse(problem)
+        eid = self._store(y, {"kind": "PHOTO", "by": role, "stage": stage,
+                              "caption": _clean(caption, CAPTION_MAX),
+                              "sha256": hashlib.sha256(bytes(data)).hexdigest(), "size": len(data)})
+        self.evidence_bytes[eid] = bytes(data)
+        return json.dumps({"evidence_id": eid})
+
+    @gl.public.write
+    def file_page(self, yid: str, url: str, caption: str) -> str:
+        """A public page, read by every validator now: the leader's text is
+        recorded only if each validator's own reading of the page agrees with
+        it from the first character (one may have read further than the
+        other). An empty or near-empty page is refused: it says nothing."""
+        y = self._policy(yid)
+        link = _public_link(url)
+        role, stage = self._filing(y, "PAGE")
+
+        def leader_fn():
+            return _page_text(link)
+
+        def validator_fn(res) -> bool:
+            if not isinstance(res, gl.vm.Return) or not isinstance(res.calldata, str):
+                return False
+            theirs = res.calldata
+            if len(theirs) < PAGE_MIN_CHARS:
+                print("[DISAGREE] the leader's page reads as nearly empty")
+                return False
+            try:
+                mine = _page_text(link)
+            except Exception as e:
+                print("[DISAGREE] could not read the page: " + str(e)[:160])
+                return False
+            if len(mine) < PAGE_MIN_CHARS or not (mine.startswith(theirs) or theirs.startswith(mine)):
+                print("[DISAGREE] this validator reads the page differently")
+                return False
+            return True
+
+        text = gl.vm.run_nondet(leader_fn, validator_fn)
+        if not isinstance(text, str) or len(text) < PAGE_MIN_CHARS:
+            _refuse("that page could not be read as text, or says almost nothing")
+        text = text[:PAGE_EXCERPT_CHARS]
+        eid = self._store(y, {"kind": "PAGE", "by": role, "stage": stage, "url": link,
+                              "caption": _clean(caption, CAPTION_MAX), "excerpt": text,
+                              "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()})
+        return json.dumps({"evidence_id": eid, "chars": len(text)})
+
+    def _look_prompt(self, it: dict) -> str:
+        """Read a field photograph without being told what anybody claims."""
+        return (
+            "You are reading a photograph filed in a dispute about crop insurance. Describe only "
+            "what is visible. Do not guess at anything you cannot see.\n"
+            f"It was filed by the {it['by'].lower()}, who says it shows: "
+            f"<<<PHOTO {_defuse(it['caption'])} END PHOTO>>> That description is the filer's own and "
+            "is not checked.\n"
+            "Answer:\n"
+            "- shows: two sentences on the crop and the field: growth, colour, wilting, bare or "
+            "cracked soil, standing water, anything that says how wet or dry the field has been.\n"
+            "- readable: true only if an image reached you and you could see it. If not, false, and "
+            "leave shows empty.\n"
+            "Answer STRICT JSON: {\"readable\": true, \"shows\": \"...\"}")
+
+    def _read_photos(self, items: list) -> dict:
+        """Each photograph on its own. One a node cannot read shows that node
+        nothing, which costs only the side that filed it."""
+        out = {}
+        for it in items:
+            if it["kind"] != "PHOTO":
+                continue
+            seen = ""
+            for _ in range(2):
+                try:
+                    raw = gl.nondet.exec_prompt(self._look_prompt(it), response_format="json",
+                                                images=[self.evidence_bytes[it["evidence_id"]]])
+                    row = _llm_object(raw, "the photograph reading")
+                except Exception:
+                    continue
+                if row.get("readable") is True and _clean(row.get("shows"), LONG_MAX):
+                    seen = _clean(row.get("shows"), LONG_MAX)
+                break
+            out[it["evidence_id"]] = seen
+        return out
+
     def _judge_prompt(self, y: dict, series: dict, sums: dict, case: dict, kind: str) -> str:
         r = y["reading"]
         sel, oth = r["selected"], r["other"]
@@ -892,6 +1439,23 @@ class HarvestShield(gl.contract.Contract):
             other_side = "farmer" if case["by"] == "INSURER" else "insurer"
             lines.append(f"<<<STATEMENT from the {other_side}, answering: "
                          f"{_defuse(case['answer'])} END STATEMENT>>>\n")
+        items = case.get("_evidence") or []
+        if items:
+            lines.append("\nEVIDENCE filed by the parties. Each item is the filing party's choice; "
+                         "its content was read by the validators, not written by the party.\n")
+            for it in items:
+                who = it["by"].lower()
+                new = " (filed for this appeal)" if kind == "APPEAL" and it["stage"] == "APPEAL" else ""
+                if it["kind"] == "PHOTO":
+                    seen = case["_photos"].get(it["evidence_id"], "")
+                    lines.append(f"<<<PHOTO {it['evidence_id']}{new}, filed by the {who}, described by its "
+                                 f"filer as {_defuse(it['caption'])}. "
+                                 f"{('It shows: ' + _defuse(seen)) if seen else 'It could not be read, so it shows nothing.'}"
+                                 " END PHOTO>>>\n")
+                else:
+                    lines.append(f"<<<PAGE {it['evidence_id']}{new}, chosen by the {who} ({_defuse(it['url'])}), "
+                                 f"described by its filer as {_defuse(it['caption'])}, as the validators read it "
+                                 f"when it was filed: {_defuse(it['excerpt'])} END PAGE>>>\n")
         if kind == "APPEAL":
             lines.append(f"This is an appeal of an earlier decision ({y['decision']['verdict']}). "
                          "Decide afresh.\n")
@@ -900,8 +1464,10 @@ class HarvestShield(gl.contract.Contract):
             "- STANDS: under the clause and the data, the selected reading governs.\n"
             "- USE_OTHER: under the clause and the data, the other reading governs.\n"
             "- NO_RELIABLE_READING: under the clause, neither reading can be relied on.\n"
-            "Apply the clause as written; where it is silent, the selected reading stands. A "
-            "party's statement is a claim, not data.\n"
+            "Apply the clause as written, weighing the two readings against the evidence of what "
+            "happened on the ground; where the clause and the evidence are silent, the selected "
+            "reading stands. A party's statement and a filer's description are claims, not data; "
+            "what a photograph shows and what a page says are evidence.\n"
             "Answer STRICT JSON: {\"verdict\": \"...\", \"reason\": \"two or three sentences\"}")
         return "".join(lines)
 
@@ -910,8 +1476,13 @@ class HarvestShield(gl.contract.Contract):
         clause applied to exactly that data. Validators must agree on the verdict."""
         series = y["reading"]["series"]
         sums = y["reading"]["summaries"]
+        items = [json.loads(self.evidence[e]) for e in y["evidence_ids"]
+                 if kind == "APPEAL" or json.loads(self.evidence[e])["stage"] == "CONTEST"]
+        case = dict(case)
+        case["_evidence"] = items
 
         def judge() -> dict:
+            case["_photos"] = self._read_photos(items)
             raw = gl.nondet.exec_prompt(self._judge_prompt(y, series, sums, case, kind),
                                         response_format="json")
             out = raw if isinstance(raw, dict) else json.loads(str(raw)[str(raw).find("{"):str(raw).rfind("}") + 1])
@@ -939,7 +1510,9 @@ class HarvestShield(gl.contract.Contract):
             raise gl.vm.UserError(f"{ERROR_LLM} the validators returned no usable decision")
         return {"verdict": got["verdict"], "reason": _clean(got.get("reason"), LONG_MAX),
                 "digests": {s: v["digest"] for s, v in sums.items()},
-                "totals": {s: v["total_tenths"] for s, v in sums.items()}}
+                "totals": {s: v["total_tenths"] for s, v in sums.items()},
+                "evidence": [{"evidence_id": it["evidence_id"], "kind": it["kind"], "by": it["by"],
+                              "stage": it["stage"], "sha256": it["sha256"]} for it in items]}
 
     def _outcome(self, y: dict, verdict: str):
         """What a verdict means: True pays the farmer, False does not, None voids."""
@@ -966,7 +1539,7 @@ class HarvestShield(gl.contract.Contract):
         y["round_count"] = n
         rec = {"n": n, "kind": kind, "at": _iso(_now()), "ruleset": RULESET_VERSION,
                "verdict": got["verdict"], "reason": got["reason"], "digests": got["digests"],
-               "totals": got["totals"], "by": case["by"],
+               "totals": got["totals"], "by": case["by"], "evidence": got["evidence"],
                "outcome": self._outcome(y, got["verdict"])}
         self.rounds[f"{y['policy_id']}|{n}"] = json.dumps(rec, sort_keys=True)
         self._bump("round")

@@ -215,6 +215,15 @@ def _web_get(url):
     return _Fetched(*served)
 
 
+def _web_render(url, mode="text"):
+    """A page as text, from the same served pages as web.get."""
+    r = _web_get(url)
+    if r.status >= 400:
+        raise RuntimeError(f"HTTP {r.status}")
+    body = r.body
+    return body.decode() if isinstance(body, bytes) else str(body)
+
+
 class _PayeeProxy:
     def __init__(self, addr):
         self.addr = str(addr)
@@ -239,7 +248,7 @@ def _install():
     gl.vm = types.SimpleNamespace(UserError=_UserError, VMError=_VMError,
                                   Return=_Return, run_nondet=_run_nondet)
     gl.nondet = types.SimpleNamespace(exec_prompt=_exec_prompt,
-                                      web=types.SimpleNamespace(get=_web_get))
+                                      web=types.SimpleNamespace(get=_web_get, render=_web_render))
     gl.message = types.SimpleNamespace(sender_address=DEPLOYER, value=0)
     gl.evm = types.SimpleNamespace(contract_interface=_contract_interface)
     gl_types = types.ModuleType("genlayer.types")
@@ -295,12 +304,12 @@ if sys.platform == "win32":
     os.unlink = _tolerant_unlink
 
 
-_TREES = ("counters", "products", "policies", "index", "rounds", "ledger")
+_TREES = ("counters", "products", "policies", "index", "rounds", "ledger", "evidence", "evidence_bytes")
 
 _PUBLIC_WRITES = ("create_product", "fund_product", "withdraw_capital", "close_product",
                   "buy_policy", "read_index", "void_unread", "contest", "answer",
                   "decide_contest", "lapse_contest", "appeal", "decide_appeal",
-                  "lapse_appeal", "finalize", "claim")
+                  "lapse_appeal", "finalize", "claim", "file_photo", "file_page")
 
 
 def _revert_on_raise(inst, name):
@@ -584,12 +593,24 @@ def verdict(v, reason="Applied the clause to the daily data."):
     return {"verdict": v, "reason": reason}
 
 
-def llm(judge=None, v_judge=None):
-    for role, val in (("leader", judge), ("validator", v_judge)):
-        _ANSWERS["judge"][role].clear()
-        _CALLS["judge"][role] = 0
+def llm(judge=None, v_judge=None, look=None, v_look=None):
+    for kind, role, val in (("judge", "leader", judge), ("judge", "validator", v_judge),
+                            ("look", "leader", look), ("look", "validator", v_look)):
+        _ANSWERS[kind][role].clear()
+        _CALLS[kind][role] = 0
         if val is not None:
-            _ANSWERS["judge"][role].extend(val if isinstance(val, list) else [val])
+            _ANSWERS[kind][role].extend(val if isinstance(val, list) else [val])
+
+
+PAGE_URL = "https://reliefweb.example.org/report/nigeria/fct-dry-spell-august-2026"
+PAGE_TEXT = ("Federal Capital Territory: crop condition report. Farmers across Abuja's outer "
+             "councils report a dry spell in the first two weeks of August 2026, with maize "
+             "showing leaf rolling and wilting in the afternoon. Extension officers recorded "
+             "moisture stress on most farms visited. ") * 3
+
+
+def seen(shows="Maize plants with rolled, greyish leaves on dry, cracked soil."):
+    return {"readable": True, "shows": shows}
 
 
 def claimable(c, addr):

@@ -10,22 +10,23 @@ from datetime import timedelta
 import pytest
 
 from conftest import (  # noqa: F401
-    DRY, FARMER, GEN, INSURER, PREMIUM, STRANGER, VERY_DRY, WET, _NOW, as_, err, funded_product,
+    PAGE_TEXT, PAGE_URL, jfif, seen, web_page, DRY, FARMER, GEN, INSURER, PREMIUM, STRANGER, VERY_DRY, WET, _NOW, as_, err, funded_product,
     llm, serve, transfers, verdict,
 )
 
 ACTORS = (INSURER, FARMER, STRANGER)
 DATA = [(WET, DRY), (WET, DRY), (VERY_DRY, WET), (VERY_DRY, WET), (WET, WET)]
-RELEVANT = {"ACTIVE": [2, 2, 3], "READ": [4, 4, 4, 4, 9], "CONTESTED": [5, 6, 6, 7], "DECIDED": [8, 8, 8, 9],
-            "APPEALED": [5, 10, 10, 11], "SETTLED": list(range(13)), "VOID": list(range(13))}
+RELEVANT = {"ACTIVE": [2, 2, 3], "READ": [4, 4, 4, 4, 9], "CONTESTED": [5, 6, 6, 7, 13, 14], "DECIDED": [8, 8, 8, 9],
+            "APPEALED": [5, 10, 10, 11, 13, 14], "SETTLED": list(range(15)), "VOID": list(range(15))}
 PROPER = {0: (INSURER,), 1: (INSURER,), 2: ACTORS, 3: (STRANGER,), 4: (FARMER, INSURER),
           5: (FARMER, INSURER), 6: (FARMER, INSURER), 7: (STRANGER,), 8: (FARMER, INSURER),
-          9: (STRANGER,), 10: (FARMER, INSURER), 11: (STRANGER,), 12: ACTORS}
+          9: (STRANGER,), 10: (FARMER, INSURER), 11: (STRANGER,), 12: ACTORS,
+          13: (FARMER, INSURER), 14: (FARMER, INSURER)}
 
 
 def act(rng, module, c, pid, yid):
     y = json.loads(c.policies[yid])
-    pick = rng.choice(RELEVANT[y["state"]]) if rng.random() < 0.8 else rng.randrange(13)
+    pick = rng.choice(RELEVANT[y["state"]]) if rng.random() < 0.8 else rng.randrange(15)
     who = rng.choice(PROPER[pick]) if rng.random() < 0.7 else rng.choice(ACTORS)
     as_(module, who)
     bond = max(10**16, int(y["payout_wei"]) // 10)
@@ -47,7 +48,7 @@ def act(rng, module, c, pid, yid):
         c.answer(yid, "The selected dataset is the right one.")
     elif pick == 6:
         serve(module, WET, DRY)
-        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])))
+        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])), look=seen())
         c.decide_contest(yid)
     elif pick == 7:
         c.lapse_contest(yid)
@@ -58,10 +59,15 @@ def act(rng, module, c, pid, yid):
         c.finalize(yid)
     elif pick == 10:
         serve(module, WET, DRY)
-        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])))
+        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])), look=seen())
         c.decide_appeal(yid)
     elif pick == 11:
         c.lapse_appeal(yid)
+    elif pick == 13:
+        c.file_photo(yid, "the field", jfif(str(rng.random()).encode()))
+    elif pick == 14:
+        web_page(PAGE_URL, PAGE_TEXT.encode())
+        c.file_page(yid, PAGE_URL, "a report")
     else:
         c.claim()
 
