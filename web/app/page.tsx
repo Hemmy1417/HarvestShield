@@ -73,7 +73,7 @@ export default function Home() {
           <div className="glass rounded-card p-4">
             <p className="label">Two readings, one window</p>
             <div className="mt-2 flex items-baseline justify-between text-[15px]"><span>Open-Meteo</span><span className="figure font-medium">163.0 mm</span></div>
-            <div className="flex items-baseline justify-between text-[15px]"><span>NASA POWER</span><span className="figure font-medium">117.1 mm</span></div>
+            <div className="flex items-baseline justify-between text-[15px]"><span>NASA POWER</span><span className="figure font-medium">117.2 mm</span></div>
             <p className="muted mt-2 text-[13px]">As GenLayer validators read them for Abuja, 1 to 14 August 2026. Against a 140 mm drought threshold, one says the cover pays and one says it does not.</p>
           </div>
           <div className="glass rounded-card p-4">

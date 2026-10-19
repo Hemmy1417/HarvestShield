@@ -113,7 +113,7 @@ A product can be a replay of one finished season, named by the insurer when it i
 
 ## Verified end-to-end
 
-See [`docs/live-proof.md`](docs/live-proof.md): the live run on the deployment of record against Abuja, 1 to 14 August 2026, where Open-Meteo reads 163.0 mm and NASA POWER 117.1 mm against a 140 mm drought threshold.
+See [`docs/live-proof.md`](docs/live-proof.md): the live run on the deployment of record against Abuja, 1 to 14 August 2026, where Open-Meteo reads 163.0 mm and NASA POWER 117.2 mm against a 140 mm drought threshold.
 
 ## Tech stack
 
