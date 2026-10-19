@@ -24,15 +24,17 @@ class TestTheReading:
         gap[5] = None
         _, yid = bought(module, c)
         serve(module, gap, DRY)
-        set_now("2026-08-24T23:00:00Z")
+        set_now("2026-09-11T23:00:00Z")
         as_(module, STRANGER)
-        with pytest.raises(err(module), match="grace period ends on 2026-08-24"):
+        with pytest.raises(err(module), match="grace period ends on 2026-09-11"):
             c.read_index(yid)
+        set_now("2026-09-12T00:00:00Z")
+        assert json.loads(c.read_index(yid))["selected"] == "NASA_POWER"
 
     def test_the_backup_governs_when_the_primary_misses_a_day(self, module, c):
         gap = list(WET)
         gap[5] = None
-        _, yid, out = read(module, c, om=gap, np=DRY)
+        _, yid, out = read(module, c, om=gap, np=DRY, at="2026-09-12T00:00:00Z")
         assert out["selected"] == "NASA_POWER" and out["triggered"] is True
         assert policy(c, yid)["reading"]["other_triggers"] is None
 
@@ -80,7 +82,7 @@ class TestTheReading:
     def test_a_nan_day_is_a_missing_day(self, module, c):
         bad = list(WET)
         bad[3] = float("nan")
-        _, yid, out = read(module, c, om=bad, np=DRY)
+        _, yid, out = read(module, c, om=bad, np=DRY, at="2026-09-12T00:00:00Z")
         assert out["selected"] == "NASA_POWER"
 
     @pytest.mark.parametrize("value", [None, {}, {"OPEN_METEO": []},
@@ -126,10 +128,10 @@ class TestSettlingTheReading:
     def test_a_reading_never_obtained_voids_at_the_long_stop(self, module, c):
         pid, yid = bought(module, c)
         as_(module, STRANGER)
-        set_now("2026-09-28T09:00:00Z")
+        set_now("2026-10-16T09:00:00Z")
         with pytest.raises(err(module), match="long stop has not passed"):
             c.void_unread(yid)
-        set_now("2026-09-29T09:00:00Z")
+        set_now("2026-10-17T09:00:00Z")
         c.void_unread(yid)
         y = policy(c, yid)
         assert y["state"] == "VOID" and y["settled_how"] == "NO_READING"

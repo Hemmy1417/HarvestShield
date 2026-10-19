@@ -676,6 +676,13 @@ class HarvestShield(gl.contract.Contract):
 
     # ── the reading ──────────────────────────────────────────────────────────
 
+    def _clock_from(self, y: dict) -> date:
+        """Where the reading's grace period and long stop are measured from:
+        the end of the window or the day the policy was bought, whichever is
+        later. A replay is bought long after its season, and its periods must
+        still run from the moment it exists."""
+        return max(date.fromisoformat(y["window_end"]), _parse_iso(y["bought_at"]).date())
+
     def _fetch_both(self, y: dict) -> dict:
         start = date.fromisoformat(y["window_start"])
         end = start + timedelta(days=y["window_days"] - 1)
@@ -728,7 +735,7 @@ class HarvestShield(gl.contract.Contract):
         chosen = _select(y, sums)
         if chosen is None:
             _refuse("neither dataset covers every day of the window yet; ask again later")
-        grace = date.fromisoformat(y["window_end"]) + timedelta(days=READ_GRACE_DAYS)
+        grace = self._clock_from(y) + timedelta(days=READ_GRACE_DAYS)
         if not all(v["complete"] for v in sums.values()) and _now().date() <= grace:
             # Read early, one dataset alone would decide, and the disagreement
             # that makes a contest possible could not yet be seen.
@@ -754,7 +761,7 @@ class HarvestShield(gl.contract.Contract):
         goes back to the farmer and the reserve to the insurer."""
         y = self._policy(yid)
         self._state(y, "ACTIVE")
-        stop = date.fromisoformat(y["window_end"]) + timedelta(days=READ_LONG_STOP_DAYS)
+        stop = self._clock_from(y) + timedelta(days=READ_LONG_STOP_DAYS)
         if _now().date() <= stop:
             _refuse("a reading can still be obtained; the long stop has not passed")
         self._settle(y, "NO_READING", None)

@@ -51,7 +51,8 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
 
   if (y.state === "ACTIVE") {
     const ended = dayPassed(y.window_end, nowMs);
-    add("read_index", "Read the rainfall", ended, `The window ends on ${y.window_end}; the reading opens the day after.`);
+    add("read_index", "Read the rainfall", ended,
+      `The window ends on ${y.window_end}; the reading opens the day after, once both datasets cover it.`);
     const stop = new Date(new Date(`${y.window_end}T00:00:00Z`).getTime() + READ_LONG_STOP_DAYS * DAY).toISOString().slice(0, 10);
     add("void_unread", "Void it for want of a reading", dayPassed(stop, nowMs),
       `Only if no complete reading is obtained by ${stop}.`);
@@ -86,8 +87,8 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
   if (y.state === "DECIDED" && y.decision) {
     const open = !past(y.appeal_ends, nowMs);
     if (me) {
-      add("appeal", "Appeal the decision", open && me === y.decision.against,
-        !open ? "The appeal window has closed." : "The decision went your way.");
+      add("appeal", "Appeal the decision", open && y.decision.against.includes(me),
+        !open ? "The appeal window has closed." : "The decision gave you the best outcome it could.");
     }
     add("finalize", "Settle on the decision", !open, opens(y.appeal_ends, nowMs, "The appeal window closes"));
   }

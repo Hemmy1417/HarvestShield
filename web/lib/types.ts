@@ -34,6 +34,8 @@ export interface Product {
   dispute_clause: string;
   periods: Periods;
   replay: boolean;
+  /** The one season a replay product covers; "" for a forward product. */
+  replay_start: string;
   created_at: string;
   funded_wei: string;
   reserved_wei: string;
@@ -77,7 +79,7 @@ export interface Appeal extends Contest {
 }
 
 /** decide_contest / decide_appeal. outcome: true pays the farmer, false does not, null voids. */
-export interface Decision { verdict: Verdict; outcome: boolean | null; round: number; against: Role }
+export interface Decision { verdict: Verdict; outcome: boolean | null; round: number; against: Role[] }
 
 /** _record */
 export interface Round {

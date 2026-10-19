@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- A house split down the middle: the left half as it was at move-in
-       (ember, solid), the right half as it is at move-out (outlined).
-       What LeaseResolve does is compare the two halves. -->
-  <rect width="64" height="64" rx="18" fill="#070607"/>
-  <path d="M32 12 L12 29 V52 H32 Z" fill="#fc5000"/>
-  <path d="M32 12 L52 29 V52 H32" fill="none" stroke="#f7f6f2" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M32 12 V52" stroke="#070607" stroke-width="2.5"/>
+  <!-- A shield whose lower half is furrowed field and whose upper half holds a
+       rain gauge: the reading that decides the cover. -->
+  <rect width="64" height="64" rx="16" fill="#421d24"/>
+  <path d="M32 9 L51 16 V31 C51 44 42 52 32 56 C22 52 13 44 13 31 V16 Z" fill="#f2f0eb"/>
+  <path d="M15.5 36 H48.5 C46 45 39.5 51 32 54 C24.5 51 18 45 15.5 36 Z" fill="#e7a43c"/>
+  <path d="M20 41 H44 M23 46 H41" stroke="#421d24" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="28.5" y="16" width="7" height="16" rx="2" fill="none" stroke="#714cb6" stroke-width="2.4"/>
+  <rect x="30.4" y="23" width="3.2" height="7.2" rx="1" fill="#714cb6"/>
 </svg>

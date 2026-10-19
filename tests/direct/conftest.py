@@ -569,9 +569,12 @@ def bought(module, c, pid=None, start=START, **over):
     return pid, out["policy_id"]
 
 
-def read(module, c, om=WET, np=DRY, who=None, **kw):
-    """A policy read with the primary (Open-Meteo) and backup (NASA) values given."""
+def read(module, c, om=WET, np=DRY, who=None, at=None, **kw):
+    """A policy read with the primary (Open-Meteo) and backup (NASA) values
+    given; `at` moves the clock after the purchase and before the reading."""
     pid, yid = bought(module, c, **kw)
+    if at:
+        set_now(at)
     serve(module, om, np)
     as_(module, who or STRANGER)
     return pid, yid, json.loads(c.read_index(yid))

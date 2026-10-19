@@ -90,12 +90,12 @@ export function TxPanel({
     onDone?.({ successful: succeeded, hash });
   }, [done, succeeded, status, hash, onDone]);
 
-  const shell = "rounded-[28px] bg-limestone p-6 text-obsidian md:p-8";
+  const shell = "rounded-card bg-paper p-6 text-ink md:p-8";
 
   if (state.step === "estimating") {
     return (
       <div className={shell}>
-        <p className="text-[15px] text-obsidian">
+        <p className="text-[15px] text-ink">
           Pricing this against the network&apos;s live fee policy.
         </p>
       </div>
@@ -105,8 +105,8 @@ export function TxPanel({
   if (state.step === "blocked") {
     return (
       <div className={shell}>
-        <p className="type-subheading">The fee quote no longer matches the network</p>
-        <p className="type-caption mt-2">Nothing was signed.</p>
+        <p className="h-sm">The fee quote no longer matches the network</p>
+        <p className="text-[13px] muted mt-2">Nothing was signed.</p>
         <div className="mt-5">
           <Button variant="secondary" onClick={() => flow.reset()}>
             Price it again
@@ -120,8 +120,8 @@ export function TxPanel({
     const err = describeError(state.message);
     return (
       <div className={shell}>
-        <p className="type-subheading">{prose(err.title)}</p>
-        <p className="mt-2 text-[15px] text-basalt">{prose(err.detail)}</p>
+        <p className="h-sm">{prose(err.title)}</p>
+        <p className="mt-2 text-[15px] text-stone">{prose(err.detail)}</p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => flow.reset()}>
             Start over
@@ -142,35 +142,35 @@ export function TxPanel({
     return (
       <div className={shell}>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="type-subheading">Review before signing</p>
+          <p className="h-sm">Review before signing</p>
           {q.verification.status === "verified" ? (
-            <span className="type-caption">Fee policy verified</span>
+            <span className="text-[13px] muted">Fee policy verified</span>
           ) : null}
         </div>
         <dl className="mt-6 flex flex-col gap-3">
           {value && value > 0n ? (
             <div className="flex items-baseline justify-between gap-5">
-              <dt className="type-caption">Sent to the contract</dt>
-              <dd className="figure text-[15px] text-obsidian">{kitFormatGen(value)} GEN</dd>
+              <dt className="text-[13px] muted">Sent to the contract</dt>
+              <dd className="figure text-[15px] text-ink">{kitFormatGen(value)} GEN</dd>
             </div>
           ) : null}
           <div className="flex items-baseline justify-between gap-5">
-            <dt className="type-caption">Refundable fee deposit</dt>
-            <dd className="figure text-[15px] text-obsidian">
+            <dt className="text-[13px] muted">Refundable fee deposit</dt>
+            <dd className="figure text-[15px] text-ink">
               {q.gasless ? "None" : `${kitFormatGen(q.feeValue)} GEN`}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-5 border-t border-grout pt-3">
-            <dt className="text-[15px] text-obsidian">Total leaving your wallet</dt>
-            <dd className="figure text-[15px] text-obsidian">{kitFormatGen(q.total)} GEN</dd>
+          <div className="flex items-baseline justify-between gap-5 border-t border-mist pt-3">
+            <dt className="text-[15px] text-ink">Total leaving your wallet</dt>
+            <dd className="figure text-[15px] text-ink">{kitFormatGen(q.total)} GEN</dd>
           </div>
         </dl>
         {q.queue?.pendingAhead ? (
-          <p className="type-caption mt-4">
+          <p className="text-[13px] muted mt-4">
             {plural(q.queue.pendingAhead, "transaction")} ahead of this wallet.
           </p>
         ) : null}
-        <p className="type-caption mt-1">Prices are live, and unused fees are refunded.</p>
+        <p className="text-[13px] muted mt-1">Prices are live, and unused fees are refunded.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button disabled={signing} onClick={() => void flow.approve()}>
             {signing ? "Waiting for your wallet" : confirmText}
@@ -202,16 +202,16 @@ export function TxPanel({
               <span
                 aria-hidden
                 className={`mt-2 inline-block h-2.5 w-2.5 rounded-full ${
-                  reached ? "bg-obsidian" : now ? "bg-ember pulse" : "bg-grout"
+                  reached ? "bg-ink" : now ? "bg-wine pulse" : "bg-mist"
                 }`}
               />
-              <span className={`text-[15px] ${reached || now ? "text-obsidian" : "text-ash"}`}>
+              <span className={`text-[15px] ${reached || now ? "text-ink" : "text-stone"}`}>
                 {PHASE_TEXT[p]}
                 {now && p === "pending" && status?.queuePosition !== undefined
                   ? `, position ${status.queuePosition}`
                   : ""}
                 {now && p === "processing" && working ? (
-                  <span className="type-caption block">{working}</span>
+                  <span className="text-[13px] muted block">{working}</span>
                 ) : null}
               </span>
             </li>
@@ -220,32 +220,32 @@ export function TxPanel({
       </ol>
 
       {done && status ? (
-        <div className="mt-6 border-t border-grout pt-5">
+        <div className="mt-6 border-t border-mist pt-5">
           {succeeded ? (
             <>
-              <p className="type-subheading">Confirmed</p>
-              <p className="type-caption mt-1">
+              <p className="h-sm">Confirmed</p>
+              <p className="text-[13px] muted mt-1">
                 Finalized on chain with a successful execution.
               </p>
             </>
           ) : finalized ? (
             <>
-              <p className="type-subheading">The contract refused it</p>
-              <p className="mt-2 text-[15px] text-basalt">
+              <p className="h-sm">The contract refused it</p>
+              <p className="mt-2 text-[15px] text-stone">
                 {refused ? refusal(refused) : "Reading the contract's reason."}
               </p>
             </>
           ) : (
             <>
-              <p className="type-subheading">Decided, not yet final</p>
-              <p className="mt-2 text-[15px] text-basalt">
+              <p className="h-sm">Decided, not yet final</p>
+              <p className="mt-2 text-[15px] text-stone">
                 The validators accepted it. It can still be walked back at network level until it
                 finalizes.
               </p>
             </>
           )}
           {hash ? (
-            <p className="type-caption mt-3">
+            <p className="text-[13px] muted mt-3">
               <TextLink href={txUrl(hash)} external>
                 See the transaction
               </TextLink>

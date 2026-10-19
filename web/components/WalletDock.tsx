@@ -40,16 +40,16 @@ function Faucet({ address }: { address: string }) {
   }
 
   return (
-    <div className="mt-4 rounded-[20px] bg-pumice p-4">
-      <p className="type-caption">In this wallet</p>
-      <p className="display figure mt-1 text-[32px]">{balance === null ? "…" : `${gen(balance)} GEN`}</p>
+    <div className="mt-4 rounded-card bg-parchment p-4">
+      <p className="text-[13px] muted">In this wallet</p>
+      <p className="h-md figure mt-1">{balance === null ? "…" : `${gen(balance)} GEN`}</p>
       <div className="mt-3">
         <Button variant="secondary" disabled={state === "asking"} onClick={() => void ask()}>
           {state === "asking" ? "Asking the faucet" : `Get ${FAUCET_GEN} test GEN`}
         </Button>
       </div>
-      {state === "done" ? <p className="type-caption mt-2">Sent. It can take a few seconds to show.</p> : null}
-      {state === "failed" ? <p className="type-caption mt-2">The faucet refused: {error}</p> : null}
+      {state === "done" ? <p className="text-[13px] muted mt-2">Sent. It can take a few seconds to show.</p> : null}
+      {state === "failed" ? <p className="text-[13px] muted mt-2">The faucet refused: {error}</p> : null}
     </div>
   );
 }
@@ -74,7 +74,7 @@ export function WalletDock() {
   }, [open]);
 
   if (w.restoring) {
-    return <span className="type-caption">Reconnecting</span>;
+    return <span className="text-[13px] muted">Reconnecting</span>;
   }
 
   if (w.address) {
@@ -84,18 +84,18 @@ export function WalletDock() {
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="rounded-pill bg-obsidian px-4 py-2 text-[14px] text-chalk"
+          className="rounded-pill bg-ink px-4 py-2 text-[14px] text-paper"
         >
           Connected
         </button>
         {open ? (
-          <div className="absolute right-0 top-[calc(100%+8px)] w-[300px] rounded-[28px] bg-limestone p-5 outline outline-[1.5px] outline-obsidian">
-            <p className="type-caption">Signing as</p>
-            <p className="mono mt-1 break-all text-obsidian">{w.address}</p>
+          <div className="absolute right-0 top-[calc(100%+8px)] w-[300px] rounded-card bg-paper p-5 outline outline-[1.5px] outline-mist">
+            <p className="text-[13px] muted">Signing as</p>
+            <p className="mono mt-1 break-all text-ink">{w.address}</p>
             <Faucet address={w.address} />
             {!w.chainOk ? (
               <div className="mt-4">
-                <p className="type-caption mb-2">
+                <p className="text-[13px] muted mb-2">
                   This wallet is on another network, so it cannot sign here.
                 </p>
                 <Button variant="secondary" onClick={() => void w.switchNetwork()}>
@@ -126,9 +126,9 @@ export function WalletDock() {
         {w.connecting ? "Connecting" : "Connect wallet"}
       </Button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-[300px] rounded-[28px] bg-limestone p-5 outline outline-[1.5px] outline-obsidian">
+        <div className="absolute right-0 top-[calc(100%+8px)] w-[300px] rounded-card bg-paper p-5 outline outline-[1.5px] outline-mist">
           {w.wallets.length === 0 ? (
-            <p className="type-caption">
+            <p className="text-[13px] muted">
               No wallet was offered to this page. Install one that speaks to GenLayer, then
               reload.
             </p>
@@ -142,7 +142,7 @@ export function WalletDock() {
                       void w.connect(d);
                       setOpen(false);
                     }}
-                    className="flex w-full items-center gap-3 rounded-card px-3 py-2 text-left text-[15px] text-obsidian hover:bg-pumice"
+                    className="flex w-full items-center gap-3 rounded-card px-3 py-2 text-left text-[15px] text-ink hover:bg-parchment"
                   >
                     {d.info.icon ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -154,7 +154,7 @@ export function WalletDock() {
               ))}
             </ul>
           )}
-          {w.error ? <p className="type-caption mt-3 text-obsidian">{w.error}</p> : null}
+          {w.error ? <p className="text-[13px] muted mt-3 text-ink">{w.error}</p> : null}
         </div>
       ) : null}
     </div>

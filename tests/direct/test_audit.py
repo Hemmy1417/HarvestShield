@@ -48,3 +48,35 @@ def test_void_decision_cannot_be_appealed_by_contestant(module, c):
     as_(module, FARMER, c._bond(policy(c, yid)))
     r = json.loads(c.appeal(yid, "the backup is plainly reliable here"))
     assert r["refused"] is False, r
+
+
+# ── round 2 ──
+
+def test_replay_policy_can_be_voided_the_moment_it_is_bought(module, c):
+    """Replay season ended >45 days before purchase: the read long stop is
+    already past, so the insurer (or anyone) voids before any reading,
+    even though both datasets are served and complete."""
+    s = "2026-06-01"
+    pid, yid = bought(module, c, start=s, replay_start=s)
+    serve(module, VERY_DRY, VERY_DRY, start=s)   # a clear drought, data available
+    as_(module, INSURER)
+    with pytest.raises(err(module), match="long stop has not passed"):
+        c.void_unread(yid)
+    assert policy(c, yid)["state"] == "ACTIVE"
+
+
+def test_replay_skips_the_grace_rule(module, c):
+    """Replay window ended 18 days before purchase: grace already over, so a
+    one-dataset read lands immediately and contest becomes impossible,
+    though the grace rule exists exactly to prevent this."""
+    pid, yid = bought(module, c)                  # START 2026-08-01, now 2026-09-01
+    np_missing = list(WET)
+    np_missing[3] = None                          # backup (wet) misses a day
+    serve(module, VERY_DRY, np_missing)
+    as_(module, STRANGER)
+    try:
+        c.read_index(yid)
+        read_ok = True
+    except Exception:
+        read_ok = False
+    assert not read_ok, "a one-dataset reading was allowed at purchase time"

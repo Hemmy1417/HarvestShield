@@ -54,7 +54,7 @@ class TestFilingAContest:
     def test_nothing_to_contest_when_only_one_dataset_is_complete(self, module, c):
         gap = list(WET)
         gap[2] = None
-        _, yid, out = read(module, c, om=gap, np=WET)
+        _, yid, out = read(module, c, om=gap, np=WET, at="2026-09-12T00:00:00Z")
         as_(module, FARMER, BOND)
         assert json.loads(c.contest(yid, "Something is off here."))["refused"] is True
 

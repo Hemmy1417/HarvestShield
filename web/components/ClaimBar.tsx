@@ -47,19 +47,19 @@ export function ClaimBar() {
   }
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-[1280px] px-4 md:px-8">
-      <div className="rounded-card bg-ember p-7 text-obsidian md:p-8">
+    <div className="mx-auto mt-4 w-full max-w-[1200px] px-4 md:px-6">
+      <div className="rounded-card bg-wine p-6 text-paper md:p-7">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="text-[14px]">The contract owes this wallet</p>
-            <p className="display figure mt-2 text-[64px]">{gen(owed)} GEN</p>
+            <p className="h-lg figure mt-2">{gen(owed)} GEN</p>
             <p className="mt-2 max-w-[56ch] text-[14px]">
               Payouts, premiums, released capital and returned bonds are credited here. Nothing is
               pushed to a wallet, so it waits until you draw it.
             </p>
           </div>
           {!signing ? (
-            <Button variant="secondary" disabled={!kit || !wallet.chainOk} onClick={() => setSigning(true)}>
+            <Button variant="light" disabled={!kit || !wallet.chainOk} onClick={() => setSigning(true)}>
               Draw it
             </Button>
           ) : null}

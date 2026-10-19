@@ -1,30 +1,25 @@
 import type { Metadata } from "next";
-import { Albert_Sans, Bebas_Neue } from "next/font/google";
+import { Onest } from "next/font/google";
 
 import { Shell } from "@/components/Shell";
 import { WalletProvider } from "@/lib/wallet";
 
 import "./globals.css";
 
-/*
- * Two faces. Bebas Neue stands in for a compressed ultrabold display cut and
- * carries every structural word at architectural scale; Albert Sans carries
- * everything else at weight 500 and nothing else.
- */
-const display = Bebas_Neue({ subsets: ["latin"], weight: ["400"], variable: "--font-bebas", display: "swap" });
-const body = Albert_Sans({ subsets: ["latin"], weight: ["500"], variable: "--font-albert", display: "swap" });
+/* One variable face: weight 460 for every large heading, 400 to 600 below. */
+const onest = Onest({ subsets: ["latin"], variable: "--font-onest", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "LeaseResolve",
+  title: "HarvestShield",
   description:
-    "A tenant's security deposit, held by a contract, and every deduction from it judged by "
-    + "GenLayer validators against the condition the flat was in on move-in day.",
+    "Parametric crop cover on GenLayer: rainfall read from two independent public datasets under "
+    + "consensus, and a disputed reading decided by validators against the policy's own clause.",
   icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={onest.variable}>
       <body>
         <WalletProvider>
           <Shell>{children}</Shell>
