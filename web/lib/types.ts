@@ -68,7 +68,7 @@ export interface Contest {
   at: string;
   answer: string;
   answered_at: string;
-  result?: "MOVED" | "HELD" | "LAPSED";
+  result?: "" | "MOVED" | "HELD" | "LAPSED";
 }
 
 /** appeal / answer */

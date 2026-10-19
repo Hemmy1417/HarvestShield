@@ -12,6 +12,7 @@ import { RainChart } from "./RainChart";
 import { Write } from "./Write";
 import { actsFor, contestable, roleOf, waitingOn, type Act } from "@/lib/acts";
 import { calls } from "@/lib/calls";
+import { sourceUrl } from "@/lib/sources";
 import {
   day, genText, mm, moment, outcomeSentence, policyName, policyState, productName, prose, roleWord,
   settledHow, shortAddress, source, sourceLong, triggerSentence, triggerShort, until, verdict,
@@ -148,7 +149,6 @@ function Acts({ y, nowMs }: { y: Policy; nowMs: number }) {
 }
 
 export function PolicyView({ y }: { y: Policy }) {
-  const wallet = useWallet();
   const nowMs = useNow();
   const r = y.reading;
   const sel = r ? r.summaries[r.selected] : null;
@@ -258,6 +258,10 @@ export function PolicyView({ y }: { y: Policy }) {
             <dl className="mt-4 grid gap-2 text-[13px]">
               <div><dt className="muted">Farmer</dt><dd className="mono">{y.farmer}</dd></div>
               <div><dt className="muted">Insurer</dt><dd className="mono">{y.insurer}</dd></div>
+              {[y.primary, y.backup].map((s) => (
+                <div key={`u${s}`}><dt className="muted">What the validators fetch from {source(s)}</dt>
+                  <dd><TextLink href={sourceUrl(s, y.lat, y.lon, y.window_start, y.window_days)} external>The dataset for this window</TextLink></dd></div>
+              ))}
               {r ? Object.entries(r.summaries).map(([s, v]) => (
                 <div key={s}><dt className="muted">{source(s)} series digest, {v.days_reported} of {v.days} days</dt><dd className="mono break-all">{v.digest}</dd></div>
               )) : null}
@@ -274,7 +278,6 @@ export function PolicyView({ y }: { y: Policy }) {
         </div>
         <div className="lg:sticky lg:top-24">
           <Acts y={y} nowMs={nowMs} />
-          {!wallet.address ? null : null}
         </div>
       </div>
     </div>
