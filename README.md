@@ -14,6 +14,7 @@ Live app: *(added on deploy)*
 - **A reading no model touches** - parsed in code to whole tenths of a millimetre per day; every validator must match the leader's series exactly.
 - **A contest only where there is a real disagreement** - refused when both datasets put the season on the same side of the threshold.
 - **A decision on the recorded data** - validators apply the written dispute clause to the series the reading agreed, never a fresh fetch, and must agree on one of three verdicts.
+- **Evidence from the field** - while a contest or an appeal is open, each side may file up to two photographs (held on chain, byte for byte) and two public pages (read by every validator when filed). The validators weigh them, with the recorded series, against the clause.
 - **Reserved payouts and a pull ledger** - each sale reserves its payout from the insurer's funding; nothing waits forever.
 
 ## How it works
@@ -23,7 +24,7 @@ Live app: *(added on deploy)*
 1. Pick a product: crop, point, threshold, window, premium, payout, the two datasets and the dispute clause are all shown.
 2. Buy a policy for a window that starts after today, paying the premium into the contract.
 3. After the window, anyone asks for the reading. If the trigger fires, the payout is yours once the contest period passes.
-4. If the reading goes against you and the datasets disagree, contest it with a bond and say why under the clause.
+4. If the reading goes against you and the datasets disagree, contest it with a bond and say why under the clause. Add photographs of the field or a public report while the contest is open.
 5. Draw what you are owed from the bar at the top.
 
 ### For the insurer
@@ -58,9 +59,9 @@ void_unread          finalize          lapse_contest                 finalize   
 |---|---|
 | Active | `read_index` once the window has ended and both datasets cover it (one alone after a 10-day grace); `void_unread` after a 45-day long stop |
 | Read | `contest` by the side it went against, if the datasets disagree; `finalize` after the contest period |
-| Contested | `answer` by the other side; `decide_contest` after the answer or the period; `lapse_contest` after the long stop |
+| Contested | `answer` by the other side; `file_photo` / `file_page` by either side until the response period ends; `decide_contest` after it; `lapse_contest` after the long stop |
 | Decided | `appeal` by a side short of its best outcome; `finalize` after the appeal window |
-| Appealed | `answer`; `decide_appeal`; `lapse_appeal` after the long stop |
+| Appealed | `answer`, `file_photo`, `file_page` during the appeal's period; `decide_appeal` after it; `lapse_appeal` after the long stop |
 
 The grace period and the read long stop run from the end of the window or the purchase, whichever is later.
 
@@ -69,7 +70,8 @@ The grace period and the read long stop run from the end of the window or the pu
 | Function | Kind | What runs under consensus |
 |---|---|---|
 | `read_index` | `gl.vm.run_nondet` | Each node fetches both datasets from URLs the contract builds and parses them to integer tenths per day; validators must reproduce the leader's two series exactly. Selection and threshold are code. |
-| `decide_contest` / `decide_appeal` | `gl.vm.run_nondet` | Each node applies the policy's dispute clause to the recorded series (totals, daily pairs, large daily differences) and both parties' statements; validators must agree on the verdict. |
+| `file_page` | `gl.vm.run_nondet` | Each node renders the public page itself; the leader's text is kept only if it is the start of every validator's own reading, and not much shorter. |
+| `decide_contest` / `decide_appeal` | `gl.vm.run_nondet` | Each node describes each photograph on its own, blind to the claims, then applies the policy's dispute clause to the recorded series (totals, daily pairs, large daily differences), the evidence and both parties' statements; validators must agree on the verdict. |
 
 ## Contract
 
@@ -77,7 +79,7 @@ The grace period and the read long stop run from the end of the window or the pu
 |---|---|
 | Network | GenLayer Studio Next, chain 61997 |
 | RPC | `https://studio-dev.genlayer.com/api` |
-| Deployment of record | [`0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9`](https://explorer-studio-dev.genlayer.com/address/0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9) |
+| Deployment of record | [`0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6`](https://explorer-studio-dev.genlayer.com/address/0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6) |
 | Source | [`contracts/harvestshield.py`](contracts/harvestshield.py), sha256 `99d43462d90ac969a4091d239c25c6d84dd75e3d0d31caae3f7e01786299ef65`, verified byte for byte |
 
 ### Write methods

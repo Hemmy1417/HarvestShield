@@ -6,6 +6,8 @@
  *
  *   node scripts/proofs.mjs 0x…            run every proof in order (resumable)
  *
+ * Contest A carries the evidence: two photographs and the farmer's field report.
+ *
  *   P1 drought replay, 140 mm: the datasets disagree about the trigger
  *     A  read, contested by the farmer, answered, decided, appealed, decided
  *     B  read, contested, never decided: the contest lapses
@@ -32,6 +34,9 @@ const clientFor = (role) => createClient({ chain, account: createAccount(KEYS[ro
 const reader = createClient({ chain, account: createAccount(KEYS.STRANGER.pk) });
 const PERIOD = 600;
 const SEASON = "2026-08-01";
+const FIXTURES = new URL("../fixtures/", import.meta.url);
+const photo = (name) => new Uint8Array(readFileSync(new URL(`photos/${name}`, FIXTURES)));
+const REPORT = "https://raw.githubusercontent.com/Hemmy1417/HarvestShield/6c828a0213b429379fd9a3e5b72e901fc1b3366c/fixtures/pages/farmer-field-report.txt";
 
 function assert(cond, message) {
   if (!cond) {
@@ -217,6 +222,7 @@ async function p1Setup() {
     run.steps["C.insurer-contests"].returned?.refused === true && /went your way/.test(run.steps["C.insurer-contests"].returned.reason));
   await step("C.contest", "FARMER", "contest", [c, "The clause favours the series without implausible days; NASA has none."], { value: bond });
   await step("C.answer", "INSURER", "answer", [c, "Open-Meteo's August pattern is typical for Abuja; NASA's early dry days are the outlier."]);
+  await after((await policy(c)).response_ends, "C's response period");
   const cd = await step("C.decide", "FARMER", "decide_contest", [c]);
   say(`C decision: ${JSON.stringify(cd.returned)}`);
   observe(`C: the validators found ${cd.returned.verdict}`);
@@ -233,8 +239,22 @@ async function p1A(pid, bond) {
   await step("A.stranger-contests", "STRANGER", "contest", [a, "A stranger's view of this."], { value: bond });
   await once("A: a stranger cannot contest", async () => run.steps["A.stranger-contests"].returned?.refused === true);
   await step("A.contest", "FARMER", "contest", [a, "NASA POWER shows the dry spell; Open-Meteo's wet days 2 and 11 look like faults."], { value: bond });
-  await step("A.decide-too-early", "FARMER", "decide_contest", [a], { refused: "may still answer" });
+  await step("A.decide-too-early", "FARMER", "decide_contest", [a], { refused: "response period has not ended" });
   await step("A.answer", "INSURER", "answer", [a, "Both wet days fall in the rainy season and are plausible; Open-Meteo governs."]);
+  await step("A.farmer-photo", "FARMER", "file_photo", [a, "My maize on 10 August: rolled grey leaves, cracked soil.", photo("maize-stressed-10-august.jpg")]);
+  await step("A.farmer-page", "FARMER", "file_page", [a, REPORT, "My field report for 1 to 14 August."]);
+  await step("A.insurer-photo", "INSURER", "file_photo", [a, "A field near the farm on 10 August.", photo("maize-green-10-august.jpg")]);
+  await step("A.stranger-photo", "STRANGER", "file_photo", [a, "Mine.", photo("maize-green-10-august.jpg")], { refused: "only the farmer or the insurer" });
+  await step("A.not-an-image", "FARMER", "file_photo", [a, "Not a photo.", new TextEncoder().encode("plain text, not a picture")], { refused: "PNG and JFIF JPEG only" });
+  let ya = await policy(a);
+  await once("A: the photographs are held on chain byte for byte, and the page as the validators read it", async () => {
+    const ev = ya.evidence;
+    const pg = ev.find((e) => e.kind === "PAGE");
+    return ev.length === 3 && ev.filter((e) => e.kind === "PHOTO").length === 2
+      && pg && pg.excerpt.includes("leaves were rolling") && pg.by === "FARMER";
+  });
+  await after(ya.response_ends, "A's response period");
+  await step("A.photo-too-late", "FARMER", "file_photo", [a, "Late.", photo("maize-stressed-10-august.jpg")], { refused: "evidence is filed while" });
   const d = await step("A.decide", "INSURER", "decide_contest", [a]);
   say(`A decision: ${JSON.stringify(d.returned)}`);
   observe(`A: the validators found ${d.returned.verdict}`);
@@ -247,6 +267,8 @@ async function p1A(pid, bond) {
   await step("A.appeal", appellant, "appeal", [a, "The decision reads the clause against the daily data the wrong way."], { value: bond });
   const other = appellant === "FARMER" ? "INSURER" : "FARMER";
   await step("A.answer-appeal", other, "answer", [a, "The decision applied the clause as written."]);
+  await step("A.decide-appeal-too-early", "FARMER", "decide_appeal", [a], { refused: "appeal's period has not ended" });
+  await after((await policy(a)).appeal.evidence_ends, "A's appeal period");
   const ad = await step("A.decide-appeal", "FARMER", "decide_appeal", [a]);
   say(`A appeal: ${JSON.stringify(ad.returned)}`);
   observe(`A: the appeal found ${ad.returned.verdict} (${ad.returned.appeal})`);
@@ -254,6 +276,7 @@ async function p1A(pid, bond) {
   assert(["SETTLED", "VOID"].includes(y.state) && y.held_wei === "0" && conserved(y), "A: the appeal settles the policy and every wei is accounted for");
   assert(y.rounds.length === 2 && y.rounds.every((r) => r.digests.OPEN_METEO === y.reading.summaries.OPEN_METEO.digest),
     "A: both decisions judged the series the reading recorded");
+  assert(y.rounds[0].evidence.length === 3, "A: the contest's decision weighed all three pieces of evidence");
 }
 
 async function p1D(pid) {
@@ -344,7 +367,7 @@ await draw("FARMER");
 await draw("INSURER");
 const writes = new Set(Object.values(run.steps).map((s) => s.fn));
 say(`writes reached: ${[...writes].sort().join(", ")} (${writes.size})`);
-assert(writes.size === 16, "every write the contract has was sent");
+assert(writes.size === 18, "every write the contract has was sent");
 run.checks = run.passed.length;
 run.finished_at = new Date().toISOString();
 save();

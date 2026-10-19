@@ -1354,7 +1354,8 @@ class HarvestShield(gl.contract.Contract):
             except Exception as e:
                 print("[DISAGREE] could not read the page: " + str(e)[:160])
                 return False
-            if len(mine) < PAGE_MIN_CHARS or not mine.startswith(theirs)                     or len(theirs) < len(mine) - PAGE_SLACK_CHARS:
+            if len(mine) < PAGE_MIN_CHARS or not mine.startswith(theirs) \
+                    or len(theirs) < len(mine) - PAGE_SLACK_CHARS:
                 print("[DISAGREE] this validator reads the page differently")
                 return False
             return True

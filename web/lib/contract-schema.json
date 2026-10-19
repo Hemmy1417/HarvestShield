@@ -1,5 +1,5 @@
 {
-  "address": "0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9",
+  "address": "0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6",
   "writes": {
     "answer": {
       "params": [
@@ -83,6 +83,32 @@
       ],
       "types": [
         "string"
+      ],
+      "payable": false
+    },
+    "file_page": {
+      "params": [
+        "yid",
+        "url",
+        "caption"
+      ],
+      "types": [
+        "string",
+        "string",
+        "string"
+      ],
+      "payable": false
+    },
+    "file_photo": {
+      "params": [
+        "yid",
+        "caption",
+        "data"
+      ],
+      "types": [
+        "string",
+        "string",
+        "bytes"
       ],
       "payable": false
     },

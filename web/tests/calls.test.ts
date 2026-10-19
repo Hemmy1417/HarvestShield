@@ -20,6 +20,7 @@ const composed = [
   calls.voidUnread("po-00001"), calls.contest("po-00001", "words", 1n), calls.answer("po-00001", "words"),
   calls.decideContest("po-00001"), calls.lapseContest("po-00001"), calls.appeal("po-00001", "words", 1n),
   calls.decideAppeal("po-00001"), calls.lapseAppeal("po-00001"), calls.finalize("po-00001"), calls.claim(),
+  calls.filePhoto("po-00001", "caption", new Uint8Array([1])), calls.filePage("po-00001", "https://example.org/", "caption"),
 ];
 
 describe("composed calls match the deployed schema", () => {

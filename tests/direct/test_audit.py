@@ -104,3 +104,20 @@ def test_respondent_closes_the_contestants_evidence_window_early(module, c):
     as_(module, FARMER)
     c.file_photo(yid, "my wilted maize", jfif(b"farmer"))
     assert any(e["by"] == "FARMER" for e in policy(c, yid)["evidence"])
+
+
+def test_leader_cuts_a_page_short_before_the_part_that_matters(module, c):
+    """A leader whose stored text stops well before a validator's own reading
+    of the page is refused: what it left out could be what decides."""
+    from conftest import PAGE_TEXT
+    _, yid = contested(module, c)
+    long = PAGE_TEXT + " Later in the month the rains returned and the maize recovered fully." * 6
+    web_page(PAGE_URL, PAGE_TEXT, validator=long)
+    as_(module, FARMER)
+    try:
+        c.file_page(yid, PAGE_URL, "the report")
+        filed = True
+    except err(module):
+        filed = False
+    assert not filed, "a page cut short of a validator's reading was recorded"
+    assert not policy(c, yid)["evidence"]
