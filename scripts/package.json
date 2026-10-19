@@ -1,0 +1,9 @@
+{
+  "name": "harvestshield-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Deploy, verify and drive HarvestShield on GenLayer Studio Next from the command line.",
+  "dependencies": {
+    "genlayer-js": "2.0.0-rc.1"
+  }
+}
