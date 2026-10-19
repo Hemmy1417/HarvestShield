@@ -3,7 +3,7 @@
  * record, verified against contracts/harvestshield.py; an environment override
  * points a checkout at another deployment, and the app says so on every page.
  */
-export const RECORD_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const RECORD_ADDRESS = "0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9";
 
 const override = process.env.NEXT_PUBLIC_HARVESTSHIELD_CONTRACT?.trim() ?? "";
 
@@ -13,7 +13,7 @@ export const CONTRACT_CONFIGURED =
 export const IS_RECORD = CONTRACT_ADDRESS.toLowerCase() === RECORD_ADDRESS.toLowerCase();
 
 /** The sha256 of the contract source these bytes were compiled from. */
-export const SOURCE_SHA256 = "";
+export const SOURCE_SHA256 = "99d43462d90ac969a4091d239c25c6d84dd75e3d0d31caae3f7e01786299ef65";
 
 export const REPO_URL = "https://github.com/Hemmy1417/HarvestShield";
 export const SOURCE_URL = `${REPO_URL}/blob/main/contracts/harvestshield.py`;

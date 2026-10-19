@@ -147,3 +147,20 @@ class TestSettlingTheReading:
         assert json.loads(c.claim())["claimed_wei"] == str(PREMIUM)
         with pytest.raises(err(module), match="nothing is owed"):
             c.claim()
+
+
+class TestTheBoundary:
+    def test_rain_exactly_at_a_drought_threshold_does_not_trigger(self, module, c):
+        exact = [10.0] * 14     # 140.0 mm, the threshold itself
+        _, _, out = read(module, c, om=exact, np=exact)
+        assert out["total_tenths"] == 1400 and out["triggered"] is False
+
+    def test_rain_exactly_at_an_excess_threshold_does_not_trigger(self, module, c):
+        exact = [10.0] * 14
+        _, _, out = read(module, c, om=exact, np=exact, trigger="RAIN_ABOVE")
+        assert out["triggered"] is False
+
+    def test_a_tenth_below_the_drought_threshold_triggers(self, module, c):
+        under = [10.0] * 13 + [9.9]
+        _, _, out = read(module, c, om=under, np=under)
+        assert out["total_tenths"] == 1399 and out["triggered"] is True

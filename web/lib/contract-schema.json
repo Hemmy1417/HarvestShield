@@ -1,0 +1,155 @@
+{
+  "address": "0x97D9A1de3D0bDFB66e9365c6Bbe93f801C7C80F9",
+  "writes": {
+    "answer": {
+      "params": [
+        "yid",
+        "statement"
+      ],
+      "types": [
+        "string",
+        "string"
+      ],
+      "payable": false
+    },
+    "appeal": {
+      "params": [
+        "yid",
+        "statement"
+      ],
+      "types": [
+        "string",
+        "string"
+      ],
+      "payable": true
+    },
+    "buy_policy": {
+      "params": [
+        "pid",
+        "window_start"
+      ],
+      "types": [
+        "string",
+        "string"
+      ],
+      "payable": true
+    },
+    "claim": {
+      "params": [],
+      "types": [],
+      "payable": false
+    },
+    "close_product": {
+      "params": [
+        "pid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "contest": {
+      "params": [
+        "yid",
+        "statement"
+      ],
+      "types": [
+        "string",
+        "string"
+      ],
+      "payable": true
+    },
+    "create_product": {
+      "params": [
+        "product_json"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "decide_appeal": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "decide_contest": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "finalize": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "fund_product": {
+      "params": [
+        "pid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": true
+    },
+    "lapse_appeal": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "lapse_contest": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "read_index": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "void_unread": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
+    "withdraw_capital": {
+      "params": [
+        "pid",
+        "amount_wei"
+      ],
+      "types": [
+        "string",
+        "string"
+      ],
+      "payable": false
+    }
+  }
+}

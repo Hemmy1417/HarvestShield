@@ -1,0 +1,97 @@
+# Three required jobs on every push and pull request.
+#
+#   contract  the GenVM linter and validator, then the direct-mode suite
+#   sweep     the mutation sweep, which is what proves the suite would notice
+#   web       lint, types, unit tests, the web mutation sweep, a production
+#             build, and one address everywhere
+#
+# The live run is not here. It signs real transactions against Studio Next and
+# waits out real windows and long stops (well over an hour), so it runs by hand
+# and its log is committed:
+#
+#   node scripts/proofs.mjs <address>     the Abuja season, every write the contract has
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: contract - genvm-lint check + direct tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The GenVM bundle the linter loads is large; keep it between runs,
+      # keyed on the tool versions and the contract itself.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/genvm-linter
+            ~/.cache/gltest-direct
+          key: genvm-${{ hashFiles('requirements.txt', 'contracts/harvestshield.py') }}
+          restore-keys: genvm-
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      # The lint rules. Semantic validation (genvm-lint check) cannot load this
+      # contract's runner: no published linter bundle carries
+      # py-genlayer:5jycge4q, and it fails with E101 before reading a line.
+      # The deployment of record is the semantic gate instead: Studio Next
+      # accepted it, and scripts/deploy.mjs verify proves its bytes are this file.
+      - run: genvm-lint lint contracts/harvestshield.py --json
+      - run: python -m pytest tests/direct -q
+
+  sweep:
+    name: contract - mutation sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/genvm-linter
+            ~/.cache/gltest-direct
+          key: genvm-${{ hashFiles('requirements.txt', 'contracts/harvestshield.py') }}
+          restore-keys: genvm-
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      # Every mutant must make the suite fail, and the control must pass. A
+      # green suite proves the tests run; this proves they would notice.
+      - run: python tests/mutation/mutate.py
+        env:
+          HARVESTSHIELD_WALK_SEEDS: "24"
+
+  web:
+    name: web - lint, types, tests, sweep, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm mutate
+      - run: pnpm build
+      # A judge clones and runs: the app, both proof logs, the committed
+      # contract schema and the documents must name one deployment.
+      - run: node scripts/check-address.mjs

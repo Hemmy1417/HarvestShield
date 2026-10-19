@@ -95,6 +95,7 @@ describe("appeal (appeal)", () => {
     expect(ready(actsFor(at("APPEALED"), INSURER, T0), "answer")).toBe(true);
     expect(ready(actsFor(at("APPEALED"), FARMER, T0), "decide_appeal")).toBe(false);
     expect(ready(actsFor(at("APPEALED"), FARMER, T0 + H + 1), "decide_appeal")).toBe(true);
+    expect(ready(actsFor(at("APPEALED"), STRANGER, T0 + 4 * H), "lapse_appeal")).toBe(false);
     expect(ready(actsFor(at("APPEALED"), STRANGER, T0 + 4 * H + 1), "lapse_appeal")).toBe(true);
   });
 });
