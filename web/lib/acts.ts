@@ -9,7 +9,21 @@ import { span } from "./present";
 import type { Policy, Role } from "./types";
 
 export type ActId = "read_index" | "void_unread" | "contest" | "answer" | "decide_contest" | "lapse_contest"
-  | "appeal" | "decide_appeal" | "lapse_appeal" | "finalize";
+  | "appeal" | "decide_appeal" | "lapse_appeal" | "finalize" | "file_photo" | "file_page";
+
+/** EVIDENCE_PER_SIDE in the contract: of each kind, per side, per contest or appeal. */
+export const EVIDENCE_PER_SIDE = 2;
+
+/** The stage evidence would be filed into now, or "" when none is open. */
+export function evidenceStage(y: Policy, nowMs: number): "CONTEST" | "APPEAL" | "" {
+  if (y.state === "CONTESTED" && !past(y.response_ends, nowMs)) return "CONTEST";
+  if (y.state === "APPEALED" && y.appeal && !past(y.appeal.evidence_ends, nowMs)) return "APPEAL";
+  return "";
+}
+
+export function filed(y: Policy, who: Role, stage: string, kind: "PHOTO" | "PAGE"): number {
+  return (y.evidence ?? []).filter((e) => e.by === who && e.stage === stage && e.kind === kind).length;
+}
 
 export interface Act { id: ActId; title: string; ready: boolean; why: string }
 
@@ -70,6 +84,14 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
     add("finalize", "Settle on the reading", !open, opens(y.contest_ends, nowMs, "The contest period closes"));
   }
 
+  const stage = evidenceStage(y, nowMs);
+  if (me && stage) {
+    add("file_photo", "File a photograph of the field", filed(y, me, stage, "PHOTO") < EVIDENCE_PER_SIDE,
+      `Each side files at most ${EVIDENCE_PER_SIDE} photographs for a ${stage === "CONTEST" ? "contest" : "appeal"}.`);
+    add("file_page", "File a public page", filed(y, me, stage, "PAGE") < EVIDENCE_PER_SIDE,
+      `Each side files at most ${EVIDENCE_PER_SIDE} pages for a ${stage === "CONTEST" ? "contest" : "appeal"}.`);
+  }
+
   if (y.state === "CONTESTED" && y.contest) {
     const c = y.contest;
     const open = !past(y.response_ends, nowMs);
@@ -77,8 +99,8 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
       add("answer", "Answer the contest", open && !c.answer, c.answer ? "Your answer is filed." : "The period for an answer has ended.");
     }
     if (me) {
-      add("decide_contest", "Ask the validators to decide", !!c.answer || !open,
-        opens(y.response_ends, nowMs, "The other side may still answer. That period closes"));
+      add("decide_contest", "Ask the validators to decide", !open,
+        opens(y.response_ends, nowMs, "Both sides may still answer and file evidence. That period closes"));
     }
     add("lapse_contest", "Let the reading stand", past(y.decision_long_stop, nowMs),
       opens(y.decision_long_stop, nowMs, "Only if the contest is never decided. That opens"));
@@ -100,8 +122,8 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
       add("answer", "Answer the appeal", open && !a.answer, a.answer ? "Your answer is filed." : "The period for an answer has ended.");
     }
     if (me) {
-      add("decide_appeal", "Ask the validators to decide the appeal", !!a.answer || !open,
-        opens(a.evidence_ends, nowMs, "The other side may still answer. That period closes"));
+      add("decide_appeal", "Ask the validators to decide the appeal", !open,
+        opens(a.evidence_ends, nowMs, "Both sides may still answer and file evidence. That period closes"));
     }
     add("lapse_appeal", "Let the decision stand", past(a.lapse_at, nowMs),
       opens(a.lapse_at, nowMs, "Only if the appeal is never decided. That opens"));

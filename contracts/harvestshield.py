@@ -108,6 +108,7 @@ MAX_IMAGE_SIDE = 8192                # pixels, either way
 JPEG_SEGMENTS_MAX = 2048             # segments and scans in one JPEG
 PAGE_EXCERPT_CHARS = 4_000
 PAGE_MIN_CHARS = 200
+PAGE_SLACK_CHARS = 300               # how much shorter than a validator's own reading the stored text may be
 URL_MAX = 300
 CAPTION_MAX = 200
 
@@ -1329,10 +1330,11 @@ class HarvestShield(gl.contract.Contract):
 
     @gl.public.write
     def file_page(self, yid: str, url: str, caption: str) -> str:
-        """A public page, read by every validator now: the leader's text is
-        recorded only if each validator's own reading of the page agrees with
-        it from the first character (one may have read further than the
-        other). An empty or near-empty page is refused: it says nothing."""
+        """A public page, read by every validator now. The leader's text is
+        recorded only if it is the start of each validator's own reading of
+        the page, and no more than a little shorter: a leader can neither add
+        words the page does not have nor cut it short before the part that
+        matters. An empty or near-empty page is refused: it says nothing."""
         y = self._policy(yid)
         link = _public_link(url)
         role, stage = self._filing(y, "PAGE")
@@ -1352,7 +1354,7 @@ class HarvestShield(gl.contract.Contract):
             except Exception as e:
                 print("[DISAGREE] could not read the page: " + str(e)[:160])
                 return False
-            if len(mine) < PAGE_MIN_CHARS or not (mine.startswith(theirs) or theirs.startswith(mine)):
+            if len(mine) < PAGE_MIN_CHARS or not mine.startswith(theirs)                     or len(theirs) < len(mine) - PAGE_SLACK_CHARS:
                 print("[DISAGREE] this validator reads the page differently")
                 return False
             return True
@@ -1553,8 +1555,9 @@ class HarvestShield(gl.contract.Contract):
             _refuse("only the farmer or the insurer may ask for a decision")
         self._state(y, "CONTESTED")
         c = y["contest"]
-        if not c["answer"] and _now() <= _parse_iso(y["response_ends"]):
-            _refuse("the other side may still answer; the response period has not ended")
+        if _now() <= _parse_iso(y["response_ends"]):
+            # Both sides may still file evidence and answer until it ends.
+            _refuse("the response period has not ended; both sides may still answer and file evidence")
         got = self._decide(y, c, "CONTEST")
         rec = self._record(y, "CONTEST", got, c)
         before, after = y["reading"]["triggered"], rec["outcome"]
@@ -1637,8 +1640,8 @@ class HarvestShield(gl.contract.Contract):
             _refuse("only the farmer or the insurer may ask for a decision")
         self._state(y, "APPEALED")
         a = y["appeal"]
-        if not a["answer"] and _now() <= _parse_iso(a["evidence_ends"]):
-            _refuse("the other side may still answer; the appeal's period has not ended")
+        if _now() <= _parse_iso(a["evidence_ends"]):
+            _refuse("the appeal's period has not ended; both sides may still answer and file evidence")
         appellant_case = {"by": a["by"], "statement": a["statement"], "answer": a["answer"]}
         got = self._decide(y, appellant_case, "APPEAL")
         rec = self._record(y, "APPEAL", got, appellant_case)

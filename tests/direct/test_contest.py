@@ -101,15 +101,16 @@ class TestAnswering:
 
 
 class TestDeciding:
-    def test_it_waits_for_the_answer_or_the_period(self, module, c):
+    def test_it_waits_for_the_whole_period_even_after_an_answer(self, module, c):
         _, yid = contested(module, c)
-        serve(module, WET, DRY)
-        llm(judge=verdict("STANDS"))
-        as_(module, FARMER)
-        with pytest.raises(err(module), match="may still answer"):
-            c.decide_contest(yid)
         as_(module, INSURER)
         c.answer(yid, "Our reading is the plausible one.")
+        serve(module, WET, DRY)
+        llm(judge=verdict("STANDS"))
+        as_(module, INSURER)
+        with pytest.raises(err(module), match="response period has not ended"):
+            c.decide_contest(yid)
+        set_now("2026-09-01T10:00:01Z")
         assert decide(module, c, yid, "STANDS")["verdict"] == "STANDS"
 
     def test_the_prompt_carries_the_clause_the_data_and_both_statements(self, module, c):
@@ -255,6 +256,9 @@ class TestAppeal:
         serve(module, WET, DRY)
         llm(judge=verdict("USE_OTHER"))
         as_(module, FARMER)
+        with pytest.raises(err(module), match="appeal's period has not ended"):
+            c.decide_appeal(yid)
+        set_now("2026-09-01T11:00:02Z")
         out = json.loads(c.decide_appeal(yid))
         assert out["appeal"] == "MOVED" and out["outcome"] is True
         y = policy(c, yid)

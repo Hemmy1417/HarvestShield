@@ -80,3 +80,27 @@ def test_replay_skips_the_grace_rule(module, c):
     except Exception:
         read_ok = False
     assert not read_ok, "a one-dataset reading was allowed at purchase time"
+
+
+# ── round 4, the evidence change ──
+from test_contest import contested  # noqa: E402
+from conftest import DRY, WET, PAGE_URL, forge_leader, jfif, llm, seen, serve, set_now, verdict, web_page  # noqa: E402,F401
+
+def test_respondent_closes_the_contestants_evidence_window_early(module, c):
+    """Insurer (respondent) files evidence, answers, and decides at once; the
+    farmer's filing right until response_ends is gone, unrebutted."""
+    _, yid = contested(module, c)
+    as_(module, INSURER)
+    c.file_photo(yid, "green field", jfif(b"insurer"))
+    c.answer(yid, "The field was green throughout August.")
+    serve(module, WET, DRY)
+    llm(judge=verdict("STANDS"), look=seen())
+    as_(module, INSURER)
+    try:
+        c.decide_contest(yid)
+    except err(module):
+        pass
+    # still inside response_ends: the farmer should be able to answer with evidence
+    as_(module, FARMER)
+    c.file_photo(yid, "my wilted maize", jfif(b"farmer"))
+    assert any(e["by"] == "FARMER" for e in policy(c, yid)["evidence"])

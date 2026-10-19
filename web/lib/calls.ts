@@ -21,9 +21,11 @@ export const calls = {
   lapseAppeal: (yid: string): Call => ({ method: "lapse_appeal", args: [yid] }),
   finalize: (yid: string): Call => ({ method: "finalize", args: [yid] }),
   claim: (): Call => ({ method: "claim", args: [] }),
+  filePhoto: (yid: string, caption: string, bytes: Uint8Array): Call => ({ method: "file_photo", args: [yid, caption, bytes] }),
+  filePage: (yid: string, url: string, caption: string): Call => ({ method: "file_page", args: [yid, url, caption] }),
 };
 
 /** Writes that send value, and answer a refusal by returning, not failing. */
 export const PAYABLE = new Set(["fund_product", "buy_policy", "contest", "appeal"]);
 /** Writes a consensus round decides, which take minutes. */
-export const ROUNDS = new Set(["read_index", "decide_contest", "decide_appeal"]);
+export const ROUNDS = new Set(["read_index", "decide_contest", "decide_appeal", "file_page"]);

@@ -19,7 +19,7 @@ export function active(over: Partial<Policy> = {}): Policy {
     replay: true, state: "ACTIVE", bought_at: iso(T0), held_wei: (10n ** 17n).toString(),
     paid_farmer_wei: "0", paid_insurer_wei: "0", reading: null, contest: null, appeal: null, decision: null,
     round_count: 0, contest_ends: "", response_ends: "", decision_long_stop: "", appeal_ends: "",
-    settled_at: "", settled_how: "", paid_to_farmer: false, events: [], rounds: [],
+    settled_at: "", settled_how: "", paid_to_farmer: false, events: [], rounds: [], evidence_ids: [], evidence: [],
     bond_wei: (2n * 10n ** 17n).toString(), ...over,
   };
 }

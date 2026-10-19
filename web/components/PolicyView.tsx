@@ -8,10 +8,12 @@
 import { useEffect, useState } from "react";
 
 import { Card, Tag, TextLink } from "./bits";
+import { EvidenceList } from "./EvidenceList";
 import { RainChart } from "./RainChart";
 import { Write } from "./Write";
 import { actsFor, contestable, roleOf, waitingOn, type Act } from "@/lib/acts";
 import { calls } from "@/lib/calls";
+import { preparePhoto, type PreparedPhoto } from "@/lib/images";
 import { sourceUrl } from "@/lib/sources";
 import {
   day, genText, mm, moment, outcomeSentence, policyName, policyState, productName, prose, roleWord,
@@ -81,6 +83,47 @@ function Statement({ who, text, at, answer }: { who: string; text: string; at: s
 
 function ActForm({ y, act }: { y: Policy; act: Act }) {
   const [text, setText] = useState("");
+  const [url, setUrl] = useState("");
+  const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
+  const [photoNote, setPhotoNote] = useState("");
+  if (act.id === "file_photo" || act.id === "file_page") {
+    const isPhoto = act.id === "file_photo";
+    return (
+      <div className="flex flex-col gap-3">
+        {isPhoto ? (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[14px]">A photograph of the field</span>
+            <input type="file" accept="image/*" className="field" onChange={async (e) => {
+              const f = e.target.files?.[0];
+              setPhotoNote("");
+              if (!f) return setPhoto(null);
+              try { setPhoto(await preparePhoto(f)); } catch (err) { setPhotoNote(String((err as Error).message)); setPhoto(null); }
+            }} />
+            {photoNote ? <span className="muted text-[13px]">{photoNote}</span> : null}
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photo.preview} alt="The photograph to be filed" className="h-36 w-full rounded-[10px] object-cover" />
+            ) : null}
+          </label>
+        ) : (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[14px]">A public page (https), such as a weather bulletin or a crop report</span>
+            <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
+            <span className="muted text-[13px]">Every validator reads the page now; what they read is what the decision will weigh.</span>
+          </label>
+        )}
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[14px]">What it shows, in your words</span>
+          <input className="field" maxLength={200} value={text} onChange={(e) => setText(e.target.value)} />
+        </label>
+        <Write
+          call={isPhoto ? calls.filePhoto(y.policy_id, text, photo?.bytes ?? new Uint8Array(0)) : calls.filePage(y.policy_id, url.trim(), text)}
+          label={act.title}
+          disabled={isPhoto ? !photo : !/^https:\/\/\S+\.\S+/.test(url.trim())}
+        />
+      </div>
+    );
+  }
   const bond = BigInt(y.bond_wei ?? "0");
   const needsText = act.id === "contest" || act.id === "appeal" || act.id === "answer";
   const call = (() => {
@@ -211,6 +254,14 @@ export function PolicyView({ y }: { y: Policy }) {
                   answer={y.contest.answer ? { text: y.contest.answer, at: y.contest.answered_at, who: y.contest.by === "FARMER" ? "insurer" : "farmer" } : undefined} />
               </div>
               {y.state === "CONTESTED" ? <p className="muted mt-3 text-[14px]">The answer period closes {until(y.response_ends, nowMs)}.</p> : null}
+            </Card>
+          ) : null}
+
+          {(y.evidence ?? []).length ? (
+            <Card>
+              <p className="label">Evidence of what happened on the ground</p>
+              <p className="muted mt-1 text-[14px]">Photographs are held and hashed by the contract; pages are recorded as the validators read them when they were filed.</p>
+              <div className="mt-4"><EvidenceList items={y.evidence ?? []} /></div>
             </Card>
           ) : null}
 

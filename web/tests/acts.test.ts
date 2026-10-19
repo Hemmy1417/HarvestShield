@@ -65,11 +65,11 @@ describe("answer and decide (answer, decide_contest)", () => {
     expect(ready(actsFor(at("CONTESTED"), INSURER, T0), "answer")).toBe(true);
     expect(ready(actsFor(at("CONTESTED"), INSURER, T0 + H + 1), "answer")).toBe(false);
   });
-  it("decides after an answer or after the period, never for a stranger", () => {
+  it("decides only after the whole period, even once answered, never for a stranger", () => {
     expect(ready(actsFor(at("CONTESTED"), FARMER, T0), "decide_contest")).toBe(false);
     const answered = at("CONTESTED");
     answered.contest!.answer = "No.";
-    expect(ready(actsFor(answered, FARMER, T0), "decide_contest")).toBe(true);
+    expect(ready(actsFor(answered, FARMER, T0 + H), "decide_contest")).toBe(false);
     expect(ready(actsFor(at("CONTESTED"), FARMER, T0 + H + 1), "decide_contest")).toBe(true);
     expect(ids(actsFor(at("CONTESTED"), STRANGER, T0))).not.toContain("decide_contest");
   });
@@ -97,6 +97,23 @@ describe("appeal (appeal)", () => {
     expect(ready(actsFor(at("APPEALED"), FARMER, T0 + H + 1), "decide_appeal")).toBe(true);
     expect(ready(actsFor(at("APPEALED"), STRANGER, T0 + 4 * H), "lapse_appeal")).toBe(false);
     expect(ready(actsFor(at("APPEALED"), STRANGER, T0 + 4 * H + 1), "lapse_appeal")).toBe(true);
+  });
+});
+
+describe("evidence (file_photo, file_page)", () => {
+  it("opens to both sides while a contest or appeal takes answers", () => {
+    for (const who of [FARMER, INSURER]) {
+      expect(ready(actsFor(at("CONTESTED"), who, T0), "file_photo")).toBe(true);
+      expect(ready(actsFor(at("APPEALED"), who, T0 + H), "file_page")).toBe(true);
+      expect(ids(actsFor(at("CONTESTED"), who, T0 + H + 1))).not.toContain("file_photo");
+    }
+    expect(ids(actsFor(at("READ"), FARMER, T0))).not.toContain("file_photo");
+    expect(ids(actsFor(at("CONTESTED"), STRANGER, T0))).not.toContain("file_page");
+  });
+  it("counts each side's own filings", () => {
+    const y = at("CONTESTED", { evidence: [1, 2].map((n) => ({ evidence_id: `ev-0000${n}`, policy_id: "po-00001", kind: "PHOTO" as const, by: "FARMER" as const, stage: "CONTEST" as const, caption: "", sha256: "", at: "" })) });
+    expect(ready(actsFor(y, FARMER, T0), "file_photo")).toBe(false);
+    expect(ready(actsFor(y, INSURER, T0), "file_photo")).toBe(true);
   });
 });
 

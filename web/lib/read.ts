@@ -13,6 +13,7 @@ import { createClient } from "genlayer-js";
 
 import { isTransient, STUDIO_NEXT } from "./chain";
 import { CONTRACT_ADDRESS, CONTRACT_CONFIGURED } from "./config";
+import { sha256Hex } from "./hash";
 import type { Balance, Config, Policy, PolicyList, Product, ProductList, Stats } from "./types";
 
 type ReadClient = {
@@ -299,6 +300,28 @@ export async function getPolicy(yid: string, fresh = false): Promise<Policy | nu
 
 export function getBalance(addr: string, fresh = true): Promise<Balance> {
   return cachedView<Balance>(`balance.${addr}`, "get_balance", [addr], fresh);
+}
+
+const images = new Map<string, Promise<{ bytes: Uint8Array; digest: string }>>();
+
+/** A photograph held by the contract, and the sha256 of the bytes this browser received. */
+export function getImage(eid: string): Promise<{ bytes: Uint8Array; digest: string }> {
+  let flight = images.get(eid);
+  if (!flight) {
+    flight = call("get_image", [eid]).then(async (raw) => {
+      let bytes: Uint8Array;
+      if (raw instanceof Uint8Array) bytes = raw;
+      else if (typeof raw === "string" && raw.startsWith("0x")) {
+        const hex = raw.slice(2);
+        bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+      } else throw new ReadError("The chain returned a photograph in a form this app does not read.", false);
+      return { bytes, digest: await sha256Hex(bytes) };
+    });
+    flight.catch(() => images.delete(eid));
+    images.set(eid, flight);
+  }
+  return flight;
 }
 
 export async function sourceUrl(yid: string, source: string): Promise<string> {

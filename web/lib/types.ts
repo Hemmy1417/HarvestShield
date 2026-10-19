@@ -93,9 +93,25 @@ export interface Round {
   totals: Record<Source, number>;
   by: Role;
   outcome: boolean | null;
+  evidence: { evidence_id: string; kind: "PHOTO" | "PAGE"; by: Role; stage: "CONTEST" | "APPEAL"; sha256: string }[];
 }
 
 export interface PolicyEvent { kind: string; at: string; by: string; detail: string }
+
+/** file_photo / file_page */
+export interface Evidence {
+  evidence_id: string;
+  policy_id: string;
+  kind: "PHOTO" | "PAGE";
+  by: Role;
+  stage: "CONTEST" | "APPEAL";
+  caption: string;
+  sha256: string;
+  at: string;
+  size?: number;
+  url?: string;
+  excerpt?: string;
+}
 
 /** _buy, then every write on the policy; get_policy adds rounds and bond_wei. */
 export interface Policy {
@@ -137,7 +153,9 @@ export interface Policy {
   settled_how: string;
   paid_to_farmer: boolean;
   events: PolicyEvent[];
+  evidence_ids: string[];
   rounds?: Round[];
+  evidence?: Evidence[];
   bond_wei?: string;
 }
 
