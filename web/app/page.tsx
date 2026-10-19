@@ -60,7 +60,7 @@ export default function Home() {
         <div className="relative z-10 max-w-[640px]">
           <Tag tone="lilac">Parametric crop cover on GenLayer</Tag>
           <h1 className="h-display mt-5 text-ink">Cover that pays on the rain, and a fair hearing when the rain is in doubt.</h1>
-          <p className="mt-5 max-w-[52ch] text-[18px] text-ink">
+          <p className="mt-5 max-w-[52ch] rounded-[12px] bg-parchment/85 p-4 text-[18px] text-ink backdrop-blur-sm">
             A farmer&apos;s payout is decided by rainfall from two independent public datasets, read by every validator. When the
             datasets disagree about whether the trigger fired, validators decide which one governs, under the clause both sides signed.
           </p>
