@@ -6,7 +6,7 @@
 
 An insurer publishes cover for a crop at a point: pay a fixed amount if rain over a window falls below (or rises above) a threshold. When the window ends, every validator fetches the rain from Open-Meteo and from NASA POWER itself and must reproduce the same numbers; a fixed rule picks which one governs. When the two datasets land on opposite sides of the threshold, the side the reading went against may contest it, and the validators decide which reading governs under the policy's own dispute clause. Code does the money.
 
-Live app: *(added on deploy)*
+Live app: **[harvest-shield.vercel.app](https://harvest-shield.vercel.app/)**
 
 ## What it is
 
