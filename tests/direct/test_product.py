@@ -13,7 +13,9 @@ class TestTheProduct:
     def test_an_insurer_publishes_and_funds_a_product(self, module, c):
         pid = funded_product(module, c)
         p = product(c, pid)
-        assert p["insurer"] == INSURER and p["funded_wei"] == str(10 * GEN)
+        assert p["insurer"] == INSURER and p["pool_wei"] == str(10 * GEN)
+        assert p["shares_total"] == str(10 * GEN) and p["backers"] == 1
+        assert p["tiers"] == [{"threshold_tenths": 1400, "pct": 100}] and p["station"] == ""
         assert p["lat"] == "9.06" and p["lon"] == "7.49" and p["replay"] is True
 
     @pytest.mark.parametrize("over,words", [
@@ -42,22 +44,33 @@ class TestTheProduct:
         p = product(c, pid)
         assert (p["lat"], p["lon"]) == ("9.06", "-7.40")
 
-    def test_only_the_insurer_funds_and_a_refusal_credits_back(self, module, c):
+    def test_anyone_backs_a_pool_for_shares(self, module, c):
         pid = funded_product(module, c)
-        as_(module, STRANGER, GEN)
-        out = json.loads(c.fund_product(pid))
-        assert out["refused"] is True and claimable(c, STRANGER) == GEN
+        as_(module, STRANGER, 5 * GEN)
+        out = json.loads(c.deposit(pid))
+        assert out["refused"] is False and out["shares"] == str(5 * GEN)
+        p = product(c, pid)
+        assert p["pool_wei"] == str(15 * GEN) and p["backers"] == 2
+        b = json.loads(c.get_backer(pid, STRANGER))
+        assert b["worth_wei"] == str(5 * GEN) and b["withdrawable_wei"] == str(5 * GEN)
+        assert json.loads(c.products_backed_by(STRANGER, 0, 10))["total"] == 1
 
-    def test_the_insurer_withdraws_only_unreserved_capital(self, module, c):
+    def test_a_dust_deposit_is_refused_and_credited_back(self, module, c):
+        pid = funded_product(module, c)
+        as_(module, STRANGER, 10**15)
+        out = json.loads(c.deposit(pid))
+        assert out["refused"] is True and claimable(c, STRANGER) == 10**15
+
+    def test_a_backer_withdraws_only_unreserved_capital(self, module, c):
         pid, _ = bought(module, c)
         as_(module, INSURER)
-        with pytest.raises(err(module), match="more than the funding no policy has reserved"):
-            c.withdraw_capital(pid, str(10 * GEN - PAYOUT + 1))
-        c.withdraw_capital(pid, str(10 * GEN - PAYOUT))
+        with pytest.raises(err(module), match="more than the pool holds unreserved"):
+            c.withdraw(pid, str(10 * GEN - PAYOUT + 1))
+        c.withdraw(pid, str(10 * GEN - PAYOUT))
         assert claimable(c, INSURER) == 10 * GEN - PAYOUT
         as_(module, STRANGER)
-        with pytest.raises(err(module), match="only the product's insurer"):
-            c.withdraw_capital(pid, "1")
+        with pytest.raises(err(module), match="you hold 0 shares"):
+            c.withdraw(pid, "1")
 
     def test_a_closed_product_sells_nothing(self, module, c):
         pid = funded_product(module, c)
@@ -129,7 +142,7 @@ class TestBuying:
         bought(module, c, pid=pid)
         as_(module, FARMER, PREMIUM)
         out = json.loads(c.buy_policy(pid, "2026-08-01"))
-        assert out["refused"] is True and "does not have the funding" in out["reason"]
+        assert out["refused"] is True and "does not have the capital" in out["reason"]
         pid2 = funded_product(module, c, capacity=1)
         bought(module, c, pid=pid2)
         as_(module, FARMER, PREMIUM)

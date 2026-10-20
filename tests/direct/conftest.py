@@ -304,9 +304,9 @@ if sys.platform == "win32":
     os.unlink = _tolerant_unlink
 
 
-_TREES = ("counters", "products", "policies", "index", "rounds", "ledger", "evidence", "evidence_bytes")
+_TREES = ("counters", "products", "policies", "index", "rounds", "ledger", "evidence", "evidence_bytes", "shares")
 
-_PUBLIC_WRITES = ("create_product", "fund_product", "withdraw_capital", "close_product",
+_PUBLIC_WRITES = ("create_product", "deposit", "withdraw", "read_vegetation", "close_product",
                   "buy_policy", "read_index", "void_unread", "contest", "answer",
                   "decide_contest", "lapse_contest", "appeal", "decide_appeal",
                   "lapse_appeal", "finalize", "claim", "file_photo", "file_page")
@@ -564,7 +564,7 @@ def funded_product(module, c, fund=10 * GEN, **over):
     as_(module, INSURER)
     pid = json.loads(c.create_product(product_params(**over)))["product_id"]
     as_(module, INSURER, fund)
-    assert json.loads(c.fund_product(pid))["refused"] is False
+    assert json.loads(c.deposit(pid))["refused"] is False
     as_(module, INSURER, 0)
     return pid
 
@@ -625,11 +625,29 @@ def product(c, pid):
     return json.loads(c.get_product(pid))
 
 
+def earned(c, yid):
+    """What the policy's product pool has earned: premiums and forfeited bonds."""
+    return int(product(c, policy(c, yid)["product_id"])["earned_wei"])
+
+
 def conserved(c, yid):
-    """Every wei a policy took in is held or paid; the payout came from the reserve."""
+    """Every wei a policy took in is held or paid; the graded share of the
+    payout came from the pool's reserve."""
     y = policy(c, yid)
-    took = int(y["premium_wei"]) + (int(y["payout_wei"]) if y.get("paid_to_farmer") else 0)
+    g = y.get("grade_paid") or 0
+    took = int(y["premium_wei"]) + int(y["payout_wei"]) * int(g) // 100
     for k in ("contest", "appeal"):
         if y.get(k):
             took += int(y[k]["bond_wei"])
-    return int(y["held_wei"]) + int(y["paid_farmer_wei"]) + int(y["paid_insurer_wei"]) == took
+    return int(y["held_wei"]) + int(y["paid_farmer_wei"]) + int(y["paid_pool_wei"]) == took + returned(c, y)
+
+
+def returned(c, y):
+    """Bonds handed back to whoever posted them leave the policy without
+    being paid to a side; count them as taken out."""
+    out = 0
+    for k in ("contest", "appeal"):
+        case = y.get(k)
+        if case and case.get("result") in ("MOVED", "LAPSED"):
+            out += int(case["bond_wei"])
+    return -out

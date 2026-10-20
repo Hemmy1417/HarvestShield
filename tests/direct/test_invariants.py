@@ -1,6 +1,7 @@
 """Random walks: every act from every actor at every moment, two policies on
-one product. After every step: no wei made or lost across the whole contract,
-a settled policy never changes again, and a product never reserves more than
+one graded product whose pool anyone may back. After every step: no wei made
+or lost across the whole contract, a settled policy never changes again, a
+pool never reserves more than it holds, and its shares never claim more than
 it holds."""
 import json
 import os
@@ -15,10 +16,15 @@ from conftest import (  # noqa: F401
 )
 
 ACTORS = (INSURER, FARMER, STRANGER)
-DATA = [(WET, DRY), (WET, DRY), (VERY_DRY, WET), (VERY_DRY, WET), (WET, WET)]
-RELEVANT = {"ACTIVE": [2, 2, 3], "READ": [4, 4, 4, 4, 9], "CONTESTED": [5, 6, 6, 7, 13, 14], "DECIDED": [8, 8, 8, 9],
-            "APPEALED": [5, 10, 10, 11, 13, 14], "SETTLED": list(range(15)), "VOID": list(range(15))}
-PROPER = {0: (INSURER,), 1: (INSURER,), 2: ACTORS, 3: (STRANGER,), 4: (FARMER, INSURER),
+MID = [6.0] * 14                                   # 84.0 mm: the 70% step
+DATA = [(WET, DRY), (WET, DRY), (VERY_DRY, WET), (VERY_DRY, WET), (WET, WET), (MID, WET), (DRY, MID)]
+RELEVANT = {"ACTIVE": [2, 2, 3, 0, 1], "READ": [4, 4, 4, 4, 9, 15], "CONTESTED": [5, 6, 6, 7, 13, 14, 15],
+            "DECIDED": [8, 8, 8, 9], "APPEALED": [5, 10, 10, 11, 13, 14, 15], "SETTLED": list(range(16)),
+            "VOID": list(range(16))}
+TIERS = [{"threshold_tenths": 1400, "pct": 40}, {"threshold_tenths": 1000, "pct": 70},
+         {"threshold_tenths": 500, "pct": 100}]
+VERDICTS = ["STANDS", "USE_OTHER", "USE_STATION", "NO_RELIABLE_READING"]
+PROPER = {0: ACTORS, 1: ACTORS, 15: ACTORS, 2: ACTORS, 3: (STRANGER,), 4: (FARMER, INSURER),
           5: (FARMER, INSURER), 6: (FARMER, INSURER), 7: (STRANGER,), 8: (FARMER, INSURER),
           9: (STRANGER,), 10: (FARMER, INSURER), 11: (STRANGER,), 12: ACTORS,
           13: (FARMER, INSURER), 14: (FARMER, INSURER)}
@@ -26,15 +32,18 @@ PROPER = {0: (INSURER,), 1: (INSURER,), 2: ACTORS, 3: (STRANGER,), 4: (FARMER, I
 
 def act(rng, module, c, pid, yid):
     y = json.loads(c.policies[yid])
-    pick = rng.choice(RELEVANT[y["state"]]) if rng.random() < 0.8 else rng.randrange(15)
+    pick = rng.choice(RELEVANT[y["state"]]) if rng.random() < 0.8 else rng.randrange(16)
     who = rng.choice(PROPER[pick]) if rng.random() < 0.7 else rng.choice(ACTORS)
     as_(module, who)
     bond = max(10**16, int(y["payout_wei"]) // 10)
     if pick == 0:
-        as_(module, who, rng.choice([GEN, GEN // 3]))
-        c.fund_product(pid)
+        as_(module, who, rng.choice([GEN, GEN // 3, 10**15]))
+        c.deposit(pid)
     elif pick == 1:
-        c.withdraw_capital(pid, str(rng.choice([GEN // 10, GEN, 5 * GEN])))
+        have = int(c.shares.get(f"{pid}|{who}") or "0")
+        c.withdraw(pid, str(max(1, rng.choice([have // 3, have, have + 1, 1]))))
+    elif pick == 15:
+        c.read_vegetation(yid)
     elif pick == 2:
         om, np = rng.choice(DATA)
         serve(module, om, np)
@@ -48,7 +57,7 @@ def act(rng, module, c, pid, yid):
         c.answer(yid, "The selected dataset is the right one.")
     elif pick == 6:
         serve(module, WET, DRY)
-        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])), look=seen())
+        llm(judge=verdict(rng.choice(VERDICTS)), look=seen())
         c.decide_contest(yid)
     elif pick == 7:
         c.lapse_contest(yid)
@@ -59,7 +68,7 @@ def act(rng, module, c, pid, yid):
         c.finalize(yid)
     elif pick == 10:
         serve(module, WET, DRY)
-        llm(judge=verdict(rng.choice(["STANDS", "USE_OTHER", "NO_RELIABLE_READING"])), look=seen())
+        llm(judge=verdict(rng.choice(VERDICTS)), look=seen())
         c.decide_appeal(yid)
     elif pick == 11:
         c.lapse_appeal(yid)
@@ -75,14 +84,14 @@ def act(rng, module, c, pid, yid):
 def books(c):
     owed = sum(int(json.loads(c.ledger[a])["claimable"]) for a in c.ledger)
     held = sum(int(json.loads(v)["held_wei"]) for v in c.policies.values())
-    funded = sum(int(json.loads(v)["funded_wei"]) for v in c.products.values())
-    return owed + held + funded + sum(t["wei"] for t in transfers())
+    pools = sum(int(json.loads(v)["pool_wei"]) for v in c.products.values())
+    return owed + held + pools + sum(t["wei"] for t in transfers())
 
 
 @pytest.mark.parametrize("seed", range(int(os.environ.get("HARVESTSHIELD_WALK_SEEDS", "80"))))
 def test_a_random_walk_keeps_every_invariant(module, c, seed):
     rng = random.Random(seed)
-    pid = funded_product(module, c, fund=5 * GEN)
+    pid = funded_product(module, c, fund=5 * GEN, tiers=TIERS)
     paid_in = 5 * GEN
     yids = []
     for _ in range(2):
@@ -102,7 +111,10 @@ def test_a_random_walk_keeps_every_invariant(module, c, seed):
         as_(module, STRANGER, 0)
         assert books(c) == paid_in, f"step {step}: the books do not balance"
         p = json.loads(c.products[pid])
-        assert 0 <= int(p["reserved_wei"]) <= int(p["funded_wei"]), f"step {step}: reserve exceeds funding"
+        assert 0 <= int(p["reserved_wei"]) <= int(p["pool_wei"]), f"step {step}: reserve exceeds the pool"
+        shares = sum(int(v) for k, v in c.shares.items() if k.startswith(pid + "|"))
+        assert shares == int(p["shares_total"]), f"step {step}: shares do not add up"
+        assert int(json.loads(c.get_stats())["pool_wei"]) == int(p["pool_wei"]), f"step {step}: pool counter drifts"
         for x in yids:
             y = json.loads(c.policies[x])
             if x in settled:
@@ -110,3 +122,21 @@ def test_a_random_walk_keeps_every_invariant(module, c, seed):
             elif y["state"] in ("SETTLED", "VOID"):
                 assert y["held_wei"] == "0"
                 settled[x] = c.policies[x]
+                REACHED.add(f"grade {y['grade_paid']}")
+    p = json.loads(c.products[pid])
+    if int(p["backers"]) > 1:
+        REACHED.add("several backers")
+    if int(p["shares_total"]) < 5 * GEN:
+        REACHED.add("a withdrawal")
+
+
+REACHED: set = set()
+
+
+def test_the_walks_reach_every_grade_and_the_pool_moves():
+    """Run after the walks: they must settle at every step of the scale, void,
+    and see the pool backed by more than one backer and drawn down."""
+    if not REACHED:
+        pytest.skip("run with the walks")
+    want = {"grade 0", "grade 40", "grade 70", "grade 100", "grade None", "several backers", "a withdrawal"}
+    assert want <= REACHED, sorted(REACHED)

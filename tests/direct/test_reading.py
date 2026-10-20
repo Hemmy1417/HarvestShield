@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from conftest import (  # noqa: F401
+from conftest import (earned,   # noqa: F401
     DRY, FARMER, GEN, INSURER, PAYOUT, PREMIUM, STRANGER, VERY_DRY, WET, as_, bought, claimable,
     conserved, err, forge_leader, network_accepts, policy, product, read, serve, set_now,
 )
@@ -109,9 +109,9 @@ class TestSettlingTheReading:
             c.finalize(yid)
         set_now("2026-09-01T10:00:01Z")
         c.finalize(yid)
-        assert claimable(c, FARMER) == PAYOUT and claimable(c, INSURER) == PREMIUM
+        assert claimable(c, FARMER) == PAYOUT and earned(c, yid) == PREMIUM
         p = product(c, pid)
-        assert p["funded_wei"] == str(10 * GEN - PAYOUT) and p["reserved_wei"] == "0"
+        assert p["pool_wei"] == str(10 * GEN - PAYOUT + PREMIUM) and p["reserved_wei"] == "0"
         assert conserved(c, yid) and policy(c, yid)["held_wei"] == "0"
 
     def test_an_uncontested_no_trigger_releases_the_reserve(self, module, c):
@@ -120,9 +120,9 @@ class TestSettlingTheReading:
         set_now("2026-09-01T10:00:01Z")
         as_(module, STRANGER)
         c.finalize(yid)
-        assert claimable(c, FARMER) == 0 and claimable(c, INSURER) == PREMIUM
+        assert claimable(c, FARMER) == 0 and earned(c, yid) == PREMIUM
         p = product(c, pid)
-        assert p["funded_wei"] == str(10 * GEN) and p["reserved_wei"] == "0" and p["active"] == 0
+        assert p["pool_wei"] == str(10 * GEN + PREMIUM) and p["reserved_wei"] == "0" and p["active"] == 0
         assert conserved(c, yid)
 
     def test_a_reading_never_obtained_voids_at_the_long_stop(self, module, c):
@@ -138,13 +138,17 @@ class TestSettlingTheReading:
         assert claimable(c, FARMER) == PREMIUM and product(c, pid)["reserved_wei"] == "0"
         assert conserved(c, yid)
 
-    def test_the_insurer_draws_the_premium(self, module, c):
-        _, yid, _ = read(module, c, om=WET, np=WET)
+    def test_the_pool_earns_the_premium_and_its_backers_draw_it(self, module, c):
+        pid, yid, _ = read(module, c, om=WET, np=WET)
         set_now("2026-09-01T10:00:01Z")
         as_(module, STRANGER)
         c.finalize(yid)
+        b = json.loads(c.get_backer(pid, INSURER))
+        assert b["worth_wei"] == str(10 * GEN + PREMIUM) and b["withdrawable_wei"] == b["worth_wei"]
         as_(module, INSURER)
-        assert json.loads(c.claim())["claimed_wei"] == str(PREMIUM)
+        out = json.loads(c.withdraw(pid, b["shares"]))
+        assert out["withdrawn_wei"] == str(10 * GEN + PREMIUM)
+        assert json.loads(c.claim())["claimed_wei"] == str(10 * GEN + PREMIUM)
         with pytest.raises(err(module), match="nothing is owed"):
             c.claim()
 
