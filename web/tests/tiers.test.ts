@@ -56,7 +56,7 @@ describe("satellite vegetation", () => {
     expect(vegetationOpenUntil(at("CONTESTED"))).toBe(at("CONTESTED").response_ends);
     expect(vegetationOpenUntil(at("APPEALED"))).toBe(at("APPEALED").appeal!.evidence_ends);
     expect(vegetationOpenUntil(at("DECIDED"))).toBe("");
-    const recorded = at("READ", { vegetation: { at: "", seasons: {}, window_mean: 1, baseline_mean: 1, anomaly_pct: 0, digest: "" } });
+    const recorded = at("READ", { vegetation: { at: "", seasons: {}, clouded: {}, window_mean: 1, baseline_mean: 1, anomaly_pct: 0, digest: "" } });
     expect(vegetationOpenUntil(recorded)).toBe("");
   });
   it("is an act for anyone, until its window closes", () => {
