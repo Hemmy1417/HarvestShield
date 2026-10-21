@@ -8,6 +8,8 @@ An insurer publishes cover for a crop at a point, in steps: a part of the payout
 
 Live app: **[harvest-shield.vercel.app](https://harvest-shield.vercel.app/)**
 
+Contract: **[`0xC56Bf1aC6c749e24ce29c377A2D185ca38F99Ef4`](https://explorer-studio-dev.genlayer.com/address/0xC56Bf1aC6c749e24ce29c377A2D185ca38F99Ef4)** on GenLayer Studio Next
+
 ## What it is
 
 - **Two independent datasets** - Open-Meteo's archive (ERA5 reanalysis) and NASA POWER (MERRA-2), from a fixed registry; the contract builds the URLs, so no party picks the source.
@@ -126,7 +128,7 @@ A product can be a replay of one finished season, named by the insurer when it i
 
 ## Verified end-to-end
 
-See [`docs/live-proof.md`](docs/live-proof.md): the live run on the deployment of record against Abuja, 1 to 14 August 2026, where Open-Meteo reads 163.0 mm and NASA POWER 117.2 mm against a 140 mm drought threshold.
+See [`docs/live-proof.md`](docs/live-proof.md): 138 checks and 72 transactions on the deployment of record, every round agreed by a majority of validators. It includes Abuja, and Des Moines, Iowa, where Open-Meteo grades the season 0%, NASA POWER 70% and the NOAA gauge a kilometre away 40%; the farmer contested and the validators ruled for NASA POWER, paying 70%.
 
 ## Tech stack
 
