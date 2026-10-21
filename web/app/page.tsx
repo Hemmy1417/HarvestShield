@@ -21,16 +21,16 @@ const ROLES = [
     key: "farmer", title: "Farmers",
     lines: [
       "Choose cover for your crop and growing area, with the rainfall trigger written in plain numbers.",
-      "Pay the premium into the contract. The payout is reserved from the insurer's funding the moment you buy.",
-      "When the window ends, the rainfall is read from two public datasets. If the trigger fires, you are paid.",
+      "Pay the premium into the contract. The payout is reserved from the product's pool the moment you buy.",
+      "When the window ends, the rainfall is read from two public datasets, and a rain gauge if the product names one. A worse season pays a larger share.",
     ],
     cta: { href: "/cover", label: "Buy cover" },
   },
   {
     key: "insurer", title: "Insurers",
     lines: [
-      "Publish a product: point, threshold, window, premium, payout, two datasets and a dispute clause in words.",
-      "Fund it. Each sale reserves one payout; unreserved funding is yours to take back at any time.",
+      "Publish a product: point, payout steps, window, premium, payout, two datasets, an optional rain gauge and a dispute clause in words.",
+      "Anyone backs its pool for shares. Each sale reserves one payout; premiums are earned by the pool, and backers withdraw unreserved capital at any time.",
       "Premiums are paid to you when policies settle. Contest a reading the datasets disagree about.",
     ],
     cta: { href: "/insurer", label: "Open the insurer desk" },
@@ -38,7 +38,7 @@ const ROLES = [
   {
     key: "court", title: "Claim court",
     lines: [
-      "When Open-Meteo and NASA POWER land on opposite sides of a threshold, the side the reading went against may contest it.",
+      "When another reading grades the season differently, the side it would favour may contest, and the validators also weigh satellite vegetation at the field.",
       "GenLayer validators apply the policy's own dispute clause to the recorded daily data and must agree on the verdict.",
       "Code turns the verdict into money. One appeal; nothing waits forever.",
     ],

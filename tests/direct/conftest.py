@@ -687,7 +687,9 @@ VEG = {"2026": [["2026-07-28", 3229], ["2026-08-13", 3860]],
        "2023": [["2023-07-28", 4400], ["2023-08-13", 5000]]}
 
 
-def serve_vegetation(module, seasons=None, lat=LAT, lon=LON, start=START, n=DAYS, validator=None):
+def serve_vegetation(module, seasons=None, lat=LAT, lon=LON, start=START, n=DAYS, validator=None, cloudy=()):
+    """Each season's NDVI composites and their MODIS pixel reliability: 0
+    (good) unless the date is in `cloudy`, which rates it 3 (cloud)."""
     seasons = VEG if seasons is None else seasons
     ws = _date.fromisoformat(start)
     we = ws + _td(days=n - 1)
@@ -696,3 +698,5 @@ def serve_vegetation(module, seasons=None, lat=LAT, lon=LON, start=START, n=DAYS
         alt = (validator or {}).get(year)
         web_page(module._vegetation_url(lat, lon, a, b), veg_body(pts),
                  validator=veg_body(alt) if alt is not None else None)
+        web_page(module._vegetation_url(lat, lon, a, b, "250m_16_days_pixel_reliability"),
+                 veg_body([[d, 3 if d in cloudy else 0] for d, _ in pts]))

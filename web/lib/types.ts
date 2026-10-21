@@ -91,6 +91,8 @@ export interface Vegetation {
   at: string;
   /** Year -> [[composite date, NDVI in ten-thousandths], ...]. */
   seasons: Record<string, [string, number][]>;
+  /** Year -> composites left out because MODIS rates them cloudy, snowy or missing. */
+  clouded: Record<string, number>;
   window_mean: number;
   baseline_mean: number | null;
   anomaly_pct: number | null;

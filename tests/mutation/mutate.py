@@ -203,9 +203,15 @@ MUTATIONS = [
     ('an unpublished season records nothing to compare',
      '        if not current:',
      '        if False:'),
+    ('cloudy composites count as vegetation',
+     '        if rel is not None and rel.get(d) not in VEG_USABLE:',
+     '        if False:'),
+    ('a cloudy window records an empty reading',
+     '            if clouded.get(year):\n                _refuse(',
+     '            if False:\n                _refuse('),
     ('fill values count as vegetation',
-     '        if -2000 <= v <= 10000 and start.isoformat() <= d <= end.isoformat():',
-     '        if start.isoformat() <= d <= end.isoformat():'),
+     '        if not -2000 <= v <= 10000:',
+     '        if False:'),
 ]
 
 # Equivalent mutants, removed with the reason each cannot change an outcome:

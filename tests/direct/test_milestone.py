@@ -330,4 +330,44 @@ class TestVegetation:
         body = json.dumps({"subset": [
             {"calendar_date": "2026-07-28", "data": [3229]}, {"calendar_date": "2026-07-01", "data": [5000]},
             {"calendar_date": "2026-08-13", "data": [-3000]}]})
-        assert module._parse_vegetation(body, date(2026, 7, 16), date(2026, 8, 14)) == [["2026-07-28", 3229]]
+        assert module._parse_vegetation(body, date(2026, 7, 16), date(2026, 8, 14)) == ([["2026-07-28", 3229]], 0)
+
+    def test_cloudy_composites_are_left_out_and_counted(self, module, c):
+        _, yid, _ = read(module, c)
+        serve_vegetation(module, cloudy=("2026-08-13", "2025-07-28", "2025-08-13"))
+        as_(module, STRANGER)
+        c.read_vegetation(yid)
+        v = policy(c, yid)["vegetation"]
+        assert v["seasons"]["2026"] == [["2026-07-28", 3229]] and v["window_mean"] == 3229
+        assert v["seasons"]["2025"] == [] and v["clouded"] == {"2026": 1, "2025": 2, "2024": 0, "2023": 0}
+        assert v["baseline_mean"] == (4500 + 5300 + 4400 + 5000) // 4
+
+    def test_a_season_with_only_cloud_records_nothing(self, module, c):
+        _, yid, _ = read(module, c)
+        serve_vegetation(module, cloudy=("2026-07-28", "2026-08-13"))
+        as_(module, STRANGER)
+        with pytest.raises(err(module), match="rated cloudy"):
+            c.read_vegetation(yid)
+
+    def test_the_judge_is_told_what_cloud_left_out(self, module, c):
+        _, yid, _ = read(module, c, om=WET, np=DRY)
+        serve_vegetation(module, cloudy=("2025-07-28", "2024-07-27"))
+        as_(module, STRANGER)
+        c.read_vegetation(yid)
+        as_(module, FARMER, BOND)
+        c.contest(yid, "NASA shows the dry spell.")
+        set_now("2026-09-01T10:00:01Z")
+        serve(module, WET, DRY)
+        llm(judge=verdict("STANDS"))
+        as_(module, FARMER)
+        c.decide_contest(yid)
+        assert "2 composites were left out because MODIS rates them cloudy" in prompts("judge", "leader")[-1]["prompt"]
+
+    def test_no_usable_earlier_season_means_no_baseline(self, module, c):
+        _, yid, _ = read(module, c)
+        cloud = tuple(d for y, pts in VEG.items() if y != "2026" for d, _ in pts)
+        serve_vegetation(module, cloudy=cloud)
+        as_(module, STRANGER)
+        c.read_vegetation(yid)
+        v = policy(c, yid)["vegetation"]
+        assert v["baseline_mean"] is None and v["anomaly_pct"] is None

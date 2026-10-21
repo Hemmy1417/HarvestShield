@@ -233,6 +233,7 @@ function VegetationCard({ y }: { y: Policy }) {
       </p>
       <p className="muted mt-1 text-[14px]">
         0 is bare ground, 1 dense green growth. A crop short of water shows a lower index than usual for the time of year.
+        {Object.values(v.clouded ?? {}).reduce((t, n) => t + n, 0) ? ` ${Object.values(v.clouded).reduce((t, n) => t + n, 0)} composites were left out because the satellite rates them cloudy.` : ""}
       </p>
       <ul className="mt-3 flex flex-wrap gap-2 text-[13px]">
         {pts.map(([d, n]) => <li key={d} className="rounded-pill bg-parchment px-2.5 py-1">{day(d)}: {(n / 10000).toFixed(2)}</li>)}

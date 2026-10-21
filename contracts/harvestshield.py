@@ -102,6 +102,7 @@ MAX_TIERS = 4                             # payout steps a product may define
 STATION_MAX_KM = 50                       # how far a named rain gauge may be from the point
 VEG_PRIOR_YEARS = 3                       # earlier seasons the vegetation reading is compared with
 VEG_LEAD_DAYS = 16                        # one composite before the window starts
+VEG_USABLE = (0, 1)                       # MODIS pixel reliability: good, or marginal; 2 snow, 3 cloud
 
 # Evidence for a contest or an appeal.
 EVIDENCE_PER_SIDE = {"PHOTO": 2, "PAGE": 2}   # of each kind, per side, per contest or appeal
@@ -664,26 +665,40 @@ def _season(window_start: date, window_end: date, year: int) -> tuple:
     return shift(window_start) - timedelta(days=VEG_LEAD_DAYS), shift(window_end)
 
 
-def _vegetation_url(lat: str, lon: str, start: date, end: date) -> str:
+def _vegetation_url(lat: str, lon: str, start: date, end: date, band: str = "250m_16_days_NDVI") -> str:
     return ("https://modis.ornl.gov/rst/api/v1/MOD13Q1/subset?latitude=" + lat + "&longitude=" + lon
-            + "&band=250m_16_days_NDVI&startDate=" + _modis_day(start) + "&endDate=" + _modis_day(end)
+            + "&band=" + band + "&startDate=" + _modis_day(start) + "&endDate=" + _modis_day(end)
             + "&kmAboveBelow=0&kmLeftRight=0")
 
 
-def _parse_vegetation(body: str, start: date, end: date) -> list:
-    """The 16-day vegetation composites that begin inside the span, each
-    [date, NDVI in ten-thousandths]. Fill values are dropped."""
-    data = json.loads(body)
-    out = []
-    for row in data.get("subset") or []:
+def _subset(body: str, start: date, end: date) -> dict:
+    """date -> the first pixel's integer value, for composites inside the span."""
+    out = {}
+    for row in json.loads(body).get("subset") or []:
         d = str(row.get("calendar_date", ""))[:10]
         vals = row.get("data") or []
-        if not vals or not d:
+        if vals and d and start.isoformat() <= d <= end.isoformat():
+            out[d] = int(vals[0])
+    return out
+
+
+def _parse_vegetation(body: str, start: date, end: date, reliability: str = "") -> tuple:
+    """The usable 16-day vegetation composites that begin inside the span,
+    each [date, NDVI in ten-thousandths], and how many were dropped because
+    MODIS itself rates them cloudy, snowy or missing. Fill values are dropped
+    too. Without a reliability series every in-range value is kept."""
+    ndvi = _subset(body, start, end)
+    rel = _subset(reliability, start, end) if reliability else None
+    kept, dropped = [], 0
+    for d in sorted(ndvi):
+        v = ndvi[d]
+        if not -2000 <= v <= 10000:
             continue
-        v = int(vals[0])
-        if -2000 <= v <= 10000 and start.isoformat() <= d <= end.isoformat():
-            out.append([d, v])
-    return sorted(out)
+        if rel is not None and rel.get(d) not in VEG_USABLE:
+            dropped += 1
+            continue
+        kept.append([d, v])
+    return kept, dropped
 
 
 def _tenths(v):
@@ -1422,14 +1437,17 @@ class HarvestShield(gl.contract.Contract):
 
     def _fetch_vegetation(self, y: dict) -> dict:
         ws, we = date.fromisoformat(y["window_start"]), date.fromisoformat(y["window_end"])
-        seasons = {}
+        seasons, clouded = {}, {}
         for year in range(ws.year - VEG_PRIOR_YEARS, ws.year + 1):
             a, b = _season(ws, we, year)
-            r = gl.nondet.web.get(_vegetation_url(y["lat"], y["lon"], a, b))
-            if int(getattr(r, "status", 200) or 200) >= 400:
-                raise gl.vm.UserError(f"{ERROR_LLM} the vegetation archive answered {r.status}")
-            seasons[str(year)] = _parse_vegetation(bytes(r.body).decode("utf-8"), a, b)
-        return seasons
+            bodies = []
+            for band in ("250m_16_days_NDVI", "250m_16_days_pixel_reliability"):
+                r = gl.nondet.web.get(_vegetation_url(y["lat"], y["lon"], a, b, band))
+                if int(getattr(r, "status", 200) or 200) >= 400:
+                    raise gl.vm.UserError(f"{ERROR_LLM} the vegetation archive answered {r.status}")
+                bodies.append(bytes(r.body).decode("utf-8"))
+            seasons[str(year)], clouded[str(year)] = _parse_vegetation(bodies[0], a, b, bodies[1])
+        return {"seasons": seasons, "clouded": clouded}
 
     @gl.public.write
     def read_vegetation(self, yid: str) -> str:
@@ -1462,22 +1480,28 @@ class HarvestShield(gl.contract.Contract):
                 return False
             return True
 
-        got = gl.vm.run_nondet(leader_fn, validator_fn)
+        raw = gl.vm.run_nondet(leader_fn, validator_fn)
         year = str(date.fromisoformat(y["window_start"]).year)
-        if not isinstance(got, dict) or year not in got or any(
+        got = raw.get("seasons") if isinstance(raw, dict) else None
+        clouded = raw.get("clouded") if isinstance(raw, dict) else None
+        if not isinstance(got, dict) or year not in got or not isinstance(clouded, dict) or any(
                 not isinstance(v, list) or any(not isinstance(x, list) or len(x) != 2 or not isinstance(x[1], int)
-                                               for x in v) for v in got.values()):
+                                               for x in v) for v in got.values()) \
+                or any(not isinstance(n, int) for n in clouded.values()):
             raise gl.vm.UserError(f"{ERROR_LLM} the validators returned no usable vegetation reading")
         current = got[year]
         if not current:
+            if clouded.get(year):
+                _refuse("every satellite composite for this window is rated cloudy or unusable by MODIS, "
+                        "so there is no vegetation reading to record")
             _refuse("the satellite composites for this window are not published yet; ask again later")
         earlier = [v for k, vals in got.items() if k != year for _, v in vals]
         mean = sum(v for _, v in current) // len(current)
         base = sum(earlier) // len(earlier) if earlier else None
         y["vegetation"] = {
-            "at": _iso(now), "seasons": got, "window_mean": mean, "baseline_mean": base,
+            "at": _iso(now), "seasons": got, "clouded": clouded, "window_mean": mean, "baseline_mean": base,
             "anomaly_pct": ((mean - base) * 100 // base) if base else None,
-            "digest": _sha256(json.dumps(got, sort_keys=True, separators=(",", ":"))),
+            "digest": _sha256(json.dumps(raw, sort_keys=True, separators=(",", ":"))),
         }
         self._event(y, "VEGETATION_READ")
         self._save(y)
@@ -1802,12 +1826,14 @@ class HarvestShield(gl.contract.Contract):
             return "No satellite vegetation reading was recorded for this policy.\n"
         year = y["window_start"][:4]
         pts = ", ".join(f"{d}: {n / 10000:.2f}" for d, n in v["seasons"].get(year, []))
-        base = (f"the mean for the same weeks in the {VEG_PRIOR_YEARS} earlier seasons was "
-                f"{v['baseline_mean'] / 10000:.2f} ({v['anomaly_pct']}% difference)") if v["baseline_mean"] else \
-            "no earlier seasons were available to compare"
+        base = (f"the mean of the usable composites for the same weeks in the {VEG_PRIOR_YEARS} earlier seasons "
+                f"was {v['baseline_mean'] / 10000:.2f} ({v['anomaly_pct']}% difference)") if v["baseline_mean"] else \
+            "no usable composite from the earlier seasons was available to compare"
+        dropped = sum((v.get("clouded") or {}).values())
+        clouds = (f" {dropped} composites were left out because MODIS rates them cloudy or unusable." if dropped else "")
         return ("<<<DATA satellite vegetation index (MODIS NDVI, 0 bare to 1 dense green) at the point, "
-                f"16-day composites this season: {pts}; window mean {v['window_mean'] / 10000:.2f}; {base}. "
-                "A crop under water stress shows a lower index than usual for the time of year. END DATA>>>\n")
+                f"usable 16-day composites this season: {pts}; window mean {v['window_mean'] / 10000:.2f}; {base}."
+                f"{clouds} A crop under water stress shows a lower index than usual for the time of year. END DATA>>>\n")
 
     def _decide(self, y: dict, case: dict, kind: str) -> dict:
         """One round under consensus on the series the reading recorded: the
