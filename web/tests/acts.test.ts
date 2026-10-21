@@ -42,10 +42,10 @@ describe("contest (_contest)", () => {
   it("is for the side the reading went against, when the datasets disagree", () => {
     expect(ready(actsFor(at("READ"), FARMER, T0), "contest")).toBe(true);
     expect(ready(actsFor(at("READ"), INSURER, T0), "contest")).toBe(false);
-    const agree = at("READ", { reading: reading({ other_triggers: false }) });
+    const agree = at("READ", { reading: reading({ other_grade: 0 }) });
     expect(contestable(agree)).toBe(false);
     expect(ready(actsFor(agree, FARMER, T0), "contest")).toBe(false);
-    const partial = at("READ", { reading: reading({ other_triggers: null }) });
+    const partial = at("READ", { reading: reading({ other_grade: null }) });
     expect(ready(actsFor(partial, FARMER, T0), "contest")).toBe(false);
   });
   it("closes with its period, when settling opens", () => {

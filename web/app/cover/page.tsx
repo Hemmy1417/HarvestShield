@@ -17,7 +17,7 @@ export default function Cover() {
       <div>
         <h1 className="h-lg">Buy cover</h1>
         <p className="mt-2 max-w-[62ch] text-[17px]">
-          Each product names a point, a rainfall threshold and a window. Pick one, pay the premium, and the payout is reserved for you.
+          Each product names a point, its payout steps and a window. Pick one, pay the premium, and the payout is reserved for you.
         </p>
       </div>
       {!CONTRACT_CONFIGURED ? <Problem title="No deployment configured" /> : list.loading ? <Loading what="the products" /> : list.error ? (

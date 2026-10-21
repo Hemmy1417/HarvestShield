@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from conftest import (  # noqa: F401
+from conftest import (earned,   # noqa: F401
     DRY, FARMER, GEN, INSURER, PAYOUT, PREMIUM, STRANGER, VERY_DRY, WET, as_, claimable,
     conserved, err, llm, network_accepts, policy, product, prompts, read, serve, set_now, verdict,
 )
@@ -49,7 +49,7 @@ class TestFilingAContest:
         _, yid, _ = read(module, c, om=WET, np=WET)
         as_(module, FARMER, BOND)
         out = json.loads(c.contest(yid, "It did not rain on my farm."))
-        assert out["refused"] is True and "same side of the threshold" in out["reason"]
+        assert out["refused"] is True and "same grade" in out["reason"]
 
     def test_nothing_to_contest_when_only_one_dataset_is_complete(self, module, c):
         gap = list(WET)
@@ -125,24 +125,24 @@ class TestDeciding:
         _, yid = contested(module, c)
         set_now("2026-09-01T10:00:01Z")
         out = decide(module, c, yid, "STANDS")
-        assert out["outcome"] is False and out["contest"] == "HELD"
-        assert claimable(c, INSURER) == BOND
+        assert out["outcome"] == 0 and out["contest"] == "HELD"
+        assert earned(c, yid) == BOND and claimable(c, INSURER) == 0
         as_(module, STRANGER)
         set_now("2026-09-01T11:00:02Z")
         c.finalize(yid)
-        assert claimable(c, FARMER) == 0 and claimable(c, INSURER) == BOND + PREMIUM
+        assert claimable(c, FARMER) == 0 and earned(c, yid) == BOND + PREMIUM
         assert conserved(c, yid)
 
     def test_use_other_pays_the_farmer_and_returns_the_bond(self, module, c):
         pid, yid = contested(module, c)
         set_now("2026-09-01T10:00:01Z")
         out = decide(module, c, yid, "USE_OTHER")
-        assert out["outcome"] is True and out["contest"] == "MOVED"
+        assert out["outcome"] == 100 and out["contest"] == "MOVED"
         assert claimable(c, FARMER) == BOND
         set_now("2026-09-01T11:00:02Z")
         as_(module, STRANGER)
         c.finalize(yid)
-        assert claimable(c, FARMER) == BOND + PAYOUT and claimable(c, INSURER) == PREMIUM
+        assert claimable(c, FARMER) == BOND + PAYOUT and earned(c, yid) == PREMIUM
         assert product(c, pid)["paid_out_wei"] == str(PAYOUT) and conserved(c, yid)
 
     def test_no_reliable_reading_voids_and_counts_as_moved_for_the_farmer(self, module, c):
@@ -216,7 +216,7 @@ class TestDeciding:
         c.lapse_contest(yid)
         y = policy(c, yid)
         assert y["settled_how"] == "CONTEST_LAPSED" and claimable(c, FARMER) == BOND
-        assert claimable(c, INSURER) == PREMIUM and conserved(c, yid)
+        assert earned(c, yid) == PREMIUM and conserved(c, yid)
 
 
 class TestAppeal:
@@ -260,11 +260,11 @@ class TestAppeal:
             c.decide_appeal(yid)
         set_now("2026-09-01T11:00:02Z")
         out = json.loads(c.decide_appeal(yid))
-        assert out["appeal"] == "MOVED" and out["outcome"] is True
+        assert out["appeal"] == "MOVED" and out["outcome"] == 100
         y = policy(c, yid)
         assert y["state"] == "SETTLED" and y["settled_how"] == "APPEAL" and y["round_count"] == 2
-        # the contest bond went to the insurer; the appeal bond came back
-        assert claimable(c, FARMER) == BOND + PAYOUT and claimable(c, INSURER) == BOND + PREMIUM
+        # the contest bond went to the pool; the appeal bond came back
+        assert claimable(c, FARMER) == BOND + PAYOUT and earned(c, yid) == BOND + PREMIUM
         assert conserved(c, yid)
 
     def test_a_held_appeal_pays_the_bond_to_the_other_side(self, module, c):
@@ -279,7 +279,7 @@ class TestAppeal:
             c.decide_appeal(yid)
         set_now("2026-09-01T11:00:02Z")
         out = json.loads(c.decide_appeal(yid))
-        assert out["appeal"] == "HELD" and claimable(c, INSURER) == 2 * BOND + PREMIUM
+        assert out["appeal"] == "HELD" and earned(c, yid) == 2 * BOND + PREMIUM
         assert conserved(c, yid)
 
     def test_an_undecided_appeal_lapses_on_the_decision(self, module, c):
@@ -294,7 +294,7 @@ class TestAppeal:
         c.lapse_appeal(yid)
         y = policy(c, yid)
         assert y["settled_how"] == "APPEAL_LAPSED" and y["paid_to_farmer"] is True
-        assert claimable(c, INSURER) == BOND + PREMIUM and conserved(c, yid)
+        assert claimable(c, INSURER) == BOND and earned(c, yid) == PREMIUM and conserved(c, yid)
 
     def test_nothing_reopens_a_settled_policy(self, module, c):
         _, yid = self.decided(module, c, "STANDS")

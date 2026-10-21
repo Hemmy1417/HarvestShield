@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Tag } from "./bits";
-import { day, genText, productName, source, triggerSentence, triggerShort } from "@/lib/present";
+import { day, genText, productName, source, tiersSentence, triggerShort } from "@/lib/present";
 import type { Product } from "@/lib/types";
 
 /** A product as the farmer shopping for cover sees it. */
@@ -17,7 +17,7 @@ export function ProductCard({ p }: { p: Product }) {
       </div>
       <p className="h-sm">{p.crop}, {p.region}</p>
       <p className="text-[15px]">
-        Pays {genText(p.payout_wei)} if there is {triggerSentence(p.trigger, p.threshold_tenths)} over {p.window_days} days
+        Pays {tiersSentence(p.trigger, p.tiers)}, out of {genText(p.payout_wei)}, over {p.window_days} days
         {p.replay ? ` from ${day(p.replay_start)}` : ""}.
       </p>
       <div className="mt-auto flex flex-wrap items-baseline justify-between gap-2 border-t border-mist pt-3 text-[14px]">

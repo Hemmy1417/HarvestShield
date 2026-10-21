@@ -13,22 +13,24 @@ export function active(over: Partial<Policy> = {}): Policy {
   return {
     policy_id: "po-00001", product_id: "pr-0001", insurer: INSURER, farmer: FARMER, crop: "Maize",
     region: "Abuja", lat: "9.06", lon: "7.49", trigger: "RAIN_BELOW", threshold_tenths: 1400, window_days: 14,
+    tiers: [{ threshold_tenths: 1400, pct: 100 }], station: "", vegetation: null,
     window_start: "2026-08-01", window_end: "2026-08-14", premium_wei: (10n ** 17n).toString(),
     payout_wei: (2n * 10n ** 18n).toString(), primary: "OPEN_METEO", backup: "NASA_POWER",
     dispute_clause: "Prefer the plausible series.", periods: { contest: 3600, response: 3600, appeal: 3600 },
     replay: true, state: "ACTIVE", bought_at: iso(T0), held_wei: (10n ** 17n).toString(),
-    paid_farmer_wei: "0", paid_insurer_wei: "0", reading: null, contest: null, appeal: null, decision: null,
+    paid_farmer_wei: "0", paid_pool_wei: "0", grade_paid: null, reading: null, contest: null, appeal: null, decision: null,
     round_count: 0, contest_ends: "", response_ends: "", decision_long_stop: "", appeal_ends: "",
     settled_at: "", settled_how: "", paid_to_farmer: false, events: [], rounds: [], evidence_ids: [], evidence: [],
     bond_wei: (2n * 10n ** 17n).toString(), ...over,
   };
 }
 
-/** read_index: Open-Meteo says no drought, NASA says drought (they disagree). */
+/** read_index: Open-Meteo grades the season 0, NASA grades it 100 (they disagree). */
 export function reading(over: Partial<Reading> = {}): Reading {
   const series = Array.from({ length: 14 }, (_, i): [string, number | null] => [`2026-08-${String(i + 1).padStart(2, "0")}`, 100]);
   return {
-    at: iso(T0), selected: "OPEN_METEO", other: "NASA_POWER", triggered: false, other_triggers: true,
+    at: iso(T0), selected: "OPEN_METEO", other: "NASA_POWER", grade: 0, other_grade: 100,
+    triggered: false, other_triggers: true, station: { status: "NONE" },
     series: { OPEN_METEO: series, NASA_POWER: series },
     summaries: {
       OPEN_METEO: { total_tenths: 1630, days_reported: 14, days: 14, complete: true, digest: "a".repeat(64) },
@@ -48,7 +50,7 @@ export function at(state: PolicyState, over: Partial<Policy> = {}): Policy {
     });
   }
   if (["DECIDED", "APPEALED"].includes(state)) {
-    Object.assign(base, { decision: { verdict: "STANDS", outcome: false, round: 1, against: ["FARMER"] }, appeal_ends: iso(T0 + H) });
+    Object.assign(base, { decision: { verdict: "STANDS", outcome: 0, round: 1, against: ["FARMER"] }, appeal_ends: iso(T0 + H) });
   }
   if (state === "APPEALED") {
     Object.assign(base, {

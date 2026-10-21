@@ -28,8 +28,9 @@ describe("words", () => {
     expect(triggerSentence("RAIN_ABOVE", 2000)).toBe("more than 200.0 mm of rain");
   });
   it("writes each outcome", () => {
-    expect(outcomeSentence(true)).toMatch(/farmer/);
-    expect(outcomeSentence(false)).toMatch(/reserve returns/);
+    expect(outcomeSentence(100)).toMatch(/full payout goes to the farmer/);
+    expect(outcomeSentence(40)).toMatch(/40% of the payout goes to the farmer/);
+    expect(outcomeSentence(0)).toMatch(/reserve returns to the pool/);
     expect(outcomeSentence(null)).toMatch(/void/);
   });
   it("writes money and time", () => {
