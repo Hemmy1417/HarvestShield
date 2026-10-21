@@ -27,14 +27,27 @@ Clean: nothing above LOW. Its three notes (a stale comment, the grace length mis
 
 The fixes were then read again and the sweep extended to each of them.
 
+## Version 2 (graded payouts, pools, rain gauge, vegetation)
+
+What v2 adds was attacked the same way: each rule has a test that fails without it, and the sweep breaks each one.
+
+- **HIGH** On the live network the vegetation baseline for Abuja came out far too low, because MODIS rates most rainy-season composites as cloud; the judge would have seen a healthy crop as a collapse. Now only composites MODIS rates good or marginal are kept, both bands are read under consensus, and the judge is told how many cloud left out. A window with nothing usable is refused rather than recorded.
+- **MEDIUM** A round can finalize with its leader reporting success while the validators timed out, so nothing was written. The live proof now requires a majority on every round, not only a finalized transaction.
+- **MEDIUM** A named gauge the archive never answers for could hold a policy back. Now the gauge is read only until the grace period ends, and is then left out.
+- **MEDIUM** An insurer could name a gauge far from the field. Now the contract takes the station's coordinates from the archive itself and ignores it beyond 50 km; a gauge missing any day does not grade the season.
+- **MEDIUM** With several grades a contest could be raised by a side that gains nothing. Now a contest needs another reading that grades the season better for the side contesting, and a bond is returned only when the outcome leaves that side better off in GEN.
+- **LOW** Vegetation could be requested repeatedly to replace an unwelcome reading. Now it is recorded once, and only while the reading can still be contested or decided.
+- **LOW** A dust deposit could mint shares at a rounding loss to other backers. Now deposits below 0.01 GEN are refused and credited back, and withdrawals come only from capital no policy has reserved.
+
 ## Mutation sweeps
 
-`tests/mutation/mutate.py` breaks 52 rules of the contract one at a time, and the suite must fail for each; `web/tests/mutation/mutate.mjs` does the same for the interface's act rules and words.
+`tests/mutation/mutate.py` breaks 70 rules of the contract one at a time, and the suite must fail for each; `web/tests/mutation/mutate.mjs` does the same for the interface's act rules and words.
 
 ## Limits that remain
 
-- Reanalysis datasets estimate rain on a grid; they are not a gauge at the farm.
-- The payout is fixed; there are no tiers.
+- Reanalysis datasets estimate rain on a grid; a NOAA gauge helps only where one is within 50 km, and most farms have none.
+- The vegetation index is weighed by the judge; it never sets a grade by itself.
+- Backers carry the pool's losses in proportion; shares cannot be redeemed while capital is reserved for live policies.
 - A contest bond follows its own round; a later appeal does not reverse it.
 - The decision's reasons are the leading validator's words; validators bind only the verdict.
 - After the grace period, a dataset that never fills a missing day leaves the other to decide alone, and the reading cannot then be contested.
