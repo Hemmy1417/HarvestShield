@@ -1,5 +1,5 @@
 {
-  "address": "0xEE527C8caE9B1D7B543ADA775E4054E9b49ab6e6",
+  "address": "0xC56Bf1aC6c749e24ce29c377A2D185ca38F99Ef4",
   "writes": {
     "answer": {
       "params": [
@@ -86,6 +86,15 @@
       ],
       "payable": false
     },
+    "deposit": {
+      "params": [
+        "pid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": true
+    },
     "file_page": {
       "params": [
         "yid",
@@ -121,15 +130,6 @@
       ],
       "payable": false
     },
-    "fund_product": {
-      "params": [
-        "pid"
-      ],
-      "types": [
-        "string"
-      ],
-      "payable": true
-    },
     "lapse_appeal": {
       "params": [
         "yid"
@@ -157,6 +157,15 @@
       ],
       "payable": false
     },
+    "read_vegetation": {
+      "params": [
+        "yid"
+      ],
+      "types": [
+        "string"
+      ],
+      "payable": false
+    },
     "void_unread": {
       "params": [
         "yid"
@@ -166,10 +175,10 @@
       ],
       "payable": false
     },
-    "withdraw_capital": {
+    "withdraw": {
       "params": [
         "pid",
-        "amount_wei"
+        "shares"
       ],
       "types": [
         "string",
