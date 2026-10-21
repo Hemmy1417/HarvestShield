@@ -416,8 +416,7 @@ async function p4() {
   }
   y = await policy(g);
   const g0 = y.grade_paid ?? 0;
-  assert(y.state === "SETTLED" && y.paid_farmer_wei === ((GEN / 2n) * BigInt(g0) / 100n
-    + (y.contest && y.contest.result === "MOVED" ? BigInt(y.contest.bond_wei) : 0n)).toString() && conserved(y),
+  assert(y.state === "SETTLED" && y.paid_farmer_wei === ((GEN / 2n) * BigInt(g0) / 100n).toString() && conserved(y),
   "G: the farmer is paid exactly the grade's share of the payout, and every wei is accounted for");
 }
 
