@@ -6,8 +6,9 @@ export interface Call { method: string; args: unknown[]; value?: bigint }
 
 export const calls = {
   createProduct: (json: string): Call => ({ method: "create_product", args: [json] }),
-  fundProduct: (pid: string, wei: bigint): Call => ({ method: "fund_product", args: [pid], value: wei }),
-  withdrawCapital: (pid: string, wei: bigint): Call => ({ method: "withdraw_capital", args: [pid, wei.toString()] }),
+  deposit: (pid: string, wei: bigint): Call => ({ method: "deposit", args: [pid], value: wei }),
+  withdraw: (pid: string, shares: bigint): Call => ({ method: "withdraw", args: [pid, shares.toString()] }),
+  readVegetation: (yid: string): Call => ({ method: "read_vegetation", args: [yid] }),
   closeProduct: (pid: string): Call => ({ method: "close_product", args: [pid] }),
   buyPolicy: (pid: string, start: string, premium: bigint): Call => ({ method: "buy_policy", args: [pid, start], value: premium }),
   readIndex: (yid: string): Call => ({ method: "read_index", args: [yid] }),
@@ -26,6 +27,6 @@ export const calls = {
 };
 
 /** Writes that send value, and answer a refusal by returning, not failing. */
-export const PAYABLE = new Set(["fund_product", "buy_policy", "contest", "appeal"]);
+export const PAYABLE = new Set(["deposit", "buy_policy", "contest", "appeal"]);
 /** Writes a consensus round decides, which take minutes. */
-export const ROUNDS = new Set(["read_index", "decide_contest", "decide_appeal", "file_page"]);
+export const ROUNDS = new Set(["read_index", "decide_contest", "decide_appeal", "file_page", "read_vegetation"]);

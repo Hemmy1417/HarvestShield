@@ -14,7 +14,7 @@ import { createClient } from "genlayer-js";
 import { isTransient, STUDIO_NEXT } from "./chain";
 import { CONTRACT_ADDRESS, CONTRACT_CONFIGURED } from "./config";
 import { sha256Hex } from "./hash";
-import type { Balance, Config, Policy, PolicyList, Product, ProductList, Stats } from "./types";
+import type { Backer, Balance, Config, Policy, PolicyList, Product, ProductList, Stats } from "./types";
 
 type ReadClient = {
   readContract(args: { address: `0x${string}`; functionName: string; args: unknown[] }): Promise<unknown>;
@@ -296,6 +296,14 @@ export async function getPolicy(yid: string, fresh = false): Promise<Policy | nu
     if (notFound(e, /there is no policy/i)) return null;
     throw e;
   }
+}
+
+export function getBacker(pid: string, addr: string, fresh = false): Promise<Backer> {
+  return cachedView<Backer>(`backer.${pid}.${addr}`, "get_backer", [pid, addr], fresh);
+}
+
+export function productsBackedBy(addr: string, fresh = false): Promise<ProductList> {
+  return cachedView<ProductList>(`backedBy.${addr}`, "products_backed_by", [addr, 0, 50], fresh);
 }
 
 export function getBalance(addr: string, fresh = true): Promise<Balance> {

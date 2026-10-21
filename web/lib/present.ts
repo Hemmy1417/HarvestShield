@@ -37,6 +37,7 @@ export const policyState = (s: string) => label(STATE, s);
 const VERDICT: Record<Verdict, string> = {
   STANDS: "The selected reading stands",
   USE_OTHER: "The other dataset governs",
+  USE_STATION: "The ground station governs",
   NO_RELIABLE_READING: "No reading can be relied on",
 };
 export const verdict = (s: string) => label(VERDICT, s);
@@ -141,9 +142,29 @@ export function prose(text: string): string {
   return /[.!?]$/.test(s) ? s : `${s}.`;
 }
 
-/** A verdict's effect, for a sentence. */
-export function outcomeSentence(outcome: boolean | null): string {
-  if (outcome === true) return "The payout goes to the farmer.";
-  if (outcome === false) return "No payout; the reserve returns to the insurer.";
-  return "The policy is void: the premium goes back to the farmer.";
+/** A grade's effect, for a sentence. */
+export function outcomeSentence(outcome: number | null): string {
+  if (outcome === null) return "The policy is void: the premium goes back to the farmer.";
+  if (outcome >= 100) return "The full payout goes to the farmer.";
+  if (outcome > 0) return `${outcome}% of the payout goes to the farmer; the rest of the reserve returns to the pool.`;
+  return "No payout; the reserve returns to the pool.";
 }
+
+/** "40% of the payout below 140.0 mm; 70% below 100.0 mm; the full payout below 50.0 mm". */
+export function tiersSentence(trigger: string, tiers: { threshold_tenths: number; pct: number }[]): string {
+  const word = trigger === "RAIN_BELOW" ? "below" : "above";
+  return tiers.map((t) => `${t.pct >= 100 ? "the full payout" : `${t.pct}% of the payout`} ${word} ${mm(t.threshold_tenths)}`).join("; ");
+}
+
+/** What a grade pays, in wei, as a string for gen(). */
+export const gradeWei = (payoutWei: string, grade: number) => ((BigInt(payoutWei) * BigInt(grade)) / 100n).toString();
+
+const STATION: Record<string, string> = {
+  NONE: "No rain gauge is named for this product.",
+  NOT_READ: "The named gauge was not read: the reading came after its grace period.",
+  NO_DATA: "The named gauge reported nothing for the window.",
+  TOO_FAR: "The named gauge is too far from the point to count.",
+  INCOMPLETE: "The named gauge did not report every day of the window.",
+  OK: "The named gauge reported every day of the window.",
+};
+export const stationStatus = (s: string) => label(STATION, s);

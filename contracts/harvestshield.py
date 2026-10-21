@@ -728,10 +728,6 @@ def _summary(series: list) -> dict:
             "digest": _sha256(json.dumps(series, separators=(",", ":")))}
 
 
-def _fires(trigger: str, total: int, threshold: int) -> bool:
-    return total < threshold if trigger == "RAIN_BELOW" else total > threshold
-
-
 def _select(policy: dict, sums: dict):
     """The fixed rule, frozen in the product: the primary dataset when it
     covers every day of the window, otherwise the backup, otherwise none."""

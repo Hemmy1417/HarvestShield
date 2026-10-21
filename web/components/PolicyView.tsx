@@ -16,8 +16,8 @@ import { calls } from "@/lib/calls";
 import { preparePhoto, type PreparedPhoto } from "@/lib/images";
 import { sourceUrl } from "@/lib/sources";
 import {
-  day, genText, mm, moment, outcomeSentence, policyName, policyState, productName, prose, roleWord,
-  settledHow, shortAddress, source, sourceLong, triggerSentence, triggerShort, until, verdict,
+  day, genText, gradeWei, mm, moment, outcomeSentence, policyName, policyState, productName, prose, roleWord, stationStatus, tiersSentence,
+  settledHow, shortAddress, source, sourceLong, triggerShort, until, verdict,
 } from "@/lib/present";
 import type { Policy } from "@/lib/types";
 import { useWallet } from "@/lib/wallet";
@@ -137,6 +137,7 @@ function ActForm({ y, act }: { y: Policy; act: Act }) {
       case "appeal": return calls.appeal(y.policy_id, text, bond);
       case "decide_appeal": return calls.decideAppeal(y.policy_id);
       case "lapse_appeal": return calls.lapseAppeal(y.policy_id);
+      case "read_vegetation": return calls.readVegetation(y.policy_id);
       default: return calls.finalize(y.policy_id);
     }
   })();
@@ -191,6 +192,55 @@ function Acts({ y, nowMs }: { y: Policy; nowMs: number }) {
   );
 }
 
+/** What the named rain gauge said, beside the two datasets. */
+function Station({ y }: { y: Policy }) {
+  const st = y.reading?.station;
+  if (!y.station || !st || st.status === "NONE") return null;
+  return (
+    <div className="mt-5 rounded-[12px] border border-mist p-4">
+      <p className="label">Ground station {y.station}{typeof st.km === "number" ? `, ${st.km} km from the point` : ""}</p>
+      {st.status === "OK" && st.summary ? (
+        <p className="mt-1 text-[15px]">
+          The rain gauge reads {mm(st.summary.total_tenths)}{typeof st.grade === "number" ? (st.grade > 0 ? `, which would pay ${st.grade}%.` : ", which pays nothing.") : "."}
+        </p>
+      ) : <p className="mt-1 text-[15px]">{stationStatus(st.status)}</p>}
+    </div>
+  );
+}
+
+/** The satellite vegetation index at the point, against earlier seasons. */
+function VegetationCard({ y }: { y: Policy }) {
+  const v = y.vegetation;
+  if (!v) {
+    return (
+      <Card>
+        <p className="label">Satellite vegetation</p>
+        <p className="mt-2 text-[15px]">
+          Not recorded. While the reading can still be contested or decided, anyone can ask the validators to read
+          the MODIS vegetation index at this point for the window and the same weeks in earlier seasons.
+        </p>
+      </Card>
+    );
+  }
+  const year = y.window_start.slice(0, 4);
+  const pts = v.seasons[year] ?? [];
+  return (
+    <Card>
+      <p className="label">Satellite vegetation, read {moment(v.at)}</p>
+      <p className="h-sm mt-2">
+        Index {(v.window_mean / 10000).toFixed(2)} over the window
+        {v.baseline_mean ? `, against ${(v.baseline_mean / 10000).toFixed(2)} for the same weeks in earlier seasons (${v.anomaly_pct! > 0 ? "+" : ""}${v.anomaly_pct}%).` : "."}
+      </p>
+      <p className="muted mt-1 text-[14px]">
+        0 is bare ground, 1 dense green growth. A crop short of water shows a lower index than usual for the time of year.
+      </p>
+      <ul className="mt-3 flex flex-wrap gap-2 text-[13px]">
+        {pts.map(([d, n]) => <li key={d} className="rounded-pill bg-parchment px-2.5 py-1">{day(d)}: {(n / 10000).toFixed(2)}</li>)}
+      </ul>
+    </Card>
+  );
+}
+
 export function PolicyView({ y }: { y: Policy }) {
   const nowMs = useNow();
   const r = y.reading;
@@ -208,7 +258,7 @@ export function PolicyView({ y }: { y: Policy }) {
         </div>
         <h1 className="h-display max-w-[18ch]">{y.crop}, {y.region}</h1>
         <p className="max-w-[64ch] text-[18px]">
-          Pays {genText(y.payout_wei)} if {y.region} has {triggerSentence(y.trigger, y.threshold_tenths)} between {day(y.window_start)} and {day(y.window_end)}.
+          Out of a payout of {genText(y.payout_wei)}, pays {tiersSentence(y.trigger, y.tiers)} of rain at {y.region} between {day(y.window_start)} and {day(y.window_end)}.
           The premium was {genText(y.premium_wei)}.
         </p>
         <Steps y={y} />
@@ -221,20 +271,21 @@ export function PolicyView({ y }: { y: Policy }) {
             {r && sel && oth ? (
               <>
                 <p className="h-md mt-2">
-                  {source(r.selected)} reads {mm(sel.total_tenths)}: {r.triggered ? "the cover pays." : "the cover does not pay."}
+                  {source(r.selected)} reads {mm(sel.total_tenths)}: {r.grade > 0 ? `the cover pays ${r.grade}%, ${genText(gradeWei(y.payout_wei, r.grade))}.` : "the cover does not pay."}
                 </p>
                 <p className="muted mt-1 text-[15px]">
                   {r.selected === y.primary
                     ? `${source(y.primary)} is the primary dataset and covered every day, so the policy's rule selected it.`
                     : `${source(y.primary)} missed a day, so the policy's rule fell back to ${source(y.backup)}.`}{" "}
                   {source(r.other)} reads {mm(oth.total_tenths)}
-                  {r.other_triggers === null ? ", but it did not cover every day."
-                    : r.other_triggers === r.triggered ? ", on the same side of the threshold." : ", on the other side of the threshold."}
+                  {r.other_grade === null ? ", but it did not cover every day."
+                    : r.other_grade === r.grade ? ", which earns the same grade." : `, which would pay ${r.other_grade}%.`}
                 </p>
                 <div className="mt-5"><RainChart series={r.series} primary={y.primary} other={y.backup} threshold={y.threshold_tenths} selected={r.selected} /></div>
-                {contestable(y) ? (
+                <Station y={y} />
+                {contestable(y) && y.state === "READ" ? (
                   <p className="mt-4 rounded-[10px] bg-lilac p-3 text-[14px]">
-                    The two datasets disagree about the trigger, so the side the reading went against may contest it until {moment(y.contest_ends)}.
+                    Another reading grades the season differently, so a side it would favour may contest until {moment(y.contest_ends)}.
                   </p>
                 ) : null}
               </>
@@ -244,6 +295,8 @@ export function PolicyView({ y }: { y: Policy }) {
               </p>
             )}
           </Card>
+
+          {r ? <VegetationCard y={y} /> : null}
 
           {y.contest ? (
             <Card>
@@ -289,7 +342,10 @@ export function PolicyView({ y }: { y: Policy }) {
             <Card className="bg-parchment">
               <p className="label">Settled {day(y.settled_at)}</p>
               <p className="h-sm mt-2">{settledHow(y.settled_how)}</p>
-              <p className="mt-1 text-[15px]">The farmer was credited {genText(y.paid_farmer_wei)}; the insurer {genText(y.paid_insurer_wei)}.</p>
+              <p className="mt-1 text-[15px]">
+                {y.grade_paid ? `Settled at ${y.grade_paid}% of the payout. ` : ""}
+                The farmer was credited {genText(y.paid_farmer_wei)}; the product&apos;s pool {genText(y.paid_pool_wei)}.
+              </p>
             </Card>
           ) : null}
 

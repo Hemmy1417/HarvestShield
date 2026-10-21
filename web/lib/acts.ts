@@ -9,7 +9,7 @@ import { span } from "./present";
 import type { Policy, Role } from "./types";
 
 export type ActId = "read_index" | "void_unread" | "contest" | "answer" | "decide_contest" | "lapse_contest"
-  | "appeal" | "decide_appeal" | "lapse_appeal" | "finalize" | "file_photo" | "file_page";
+  | "appeal" | "decide_appeal" | "lapse_appeal" | "finalize" | "file_photo" | "file_page" | "read_vegetation";
 
 /** EVIDENCE_PER_SIDE in the contract: of each kind, per side, per contest or appeal. */
 export const EVIDENCE_PER_SIDE = 2;
@@ -48,13 +48,34 @@ function opens(iso: string, nowMs: number, what: string): string {
   return `${what} ${left > 0 ? `in ${span(left)}` : "about now"}.`;
 }
 
-/** Who a reading goes against: the insurer if it pays, the farmer if it does not. */
-export const against = (triggered: boolean): Role => (triggered ? "INSURER" : "FARMER");
-
-/** Whether the two datasets disagree about the trigger, which is what makes a contest possible. */
-export function contestable(y: Policy): boolean {
+/** The grades the other readings give: the other dataset, and the gauge when it was read in full. */
+export function alternatives(y: Policy): number[] {
   const r = y.reading;
-  return !!r && r.other_triggers !== null && r.other_triggers !== r.triggered;
+  if (!r) return [];
+  const out: number[] = [];
+  if (r.other_grade !== null && r.other_grade !== undefined) out.push(r.other_grade);
+  if (r.station?.status === "OK" && typeof r.station.grade === "number") out.push(r.station.grade);
+  return out;
+}
+
+/** Whether another reading grades the season differently, which is what makes a contest possible. */
+export function contestable(y: Policy): boolean {
+  return !!y.reading && alternatives(y).some((g) => g !== y.reading!.grade);
+}
+
+/** Whether another reading grades the season better for this side. */
+export function betterFor(y: Policy, me: Role): boolean {
+  const g = y.reading?.grade ?? 0;
+  return alternatives(y).some((a) => (me === "FARMER" ? a > g : a < g));
+}
+
+/** The window in which vegetation can still be recorded, or "" when it cannot. */
+export function vegetationOpenUntil(y: Policy): string {
+  if (y.vegetation) return "";
+  if (y.state === "READ") return y.contest_ends;
+  if (y.state === "CONTESTED") return y.response_ends;
+  if (y.state === "APPEALED" && y.appeal) return y.appeal.evidence_ends;
+  return "";
 }
 
 export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
@@ -75,13 +96,18 @@ export function actsFor(y: Policy, address: string, nowMs: number): Act[] {
   if (y.state === "READ" && y.reading) {
     const open = !past(y.contest_ends, nowMs);
     if (me) {
-      const loser = against(y.reading.triggered);
-      add("contest", "Contest the reading", open && me === loser && contestable(y),
+      add("contest", "Contest the reading", open && contestable(y) && betterFor(y, me),
         !open ? "The contest period has ended."
-          : me !== loser ? "The reading went your way."
-          : "Both datasets put the season on the same side of the threshold, so there is nothing to contest.");
+          : !contestable(y) ? "Every other reading gives the season the same grade, so there is nothing to contest."
+          : "The reading went your way: no other reading grades the season better for you.");
     }
     add("finalize", "Settle on the reading", !open, opens(y.contest_ends, nowMs, "The contest period closes"));
+  }
+
+  const vegUntil = vegetationOpenUntil(y);
+  if (vegUntil) {
+    add("read_vegetation", "Record the satellite vegetation", !past(vegUntil, nowMs),
+      "Vegetation is recorded only while the reading can still be contested or decided.");
   }
 
   const stage = evidenceStage(y, nowMs);

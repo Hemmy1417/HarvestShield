@@ -8,14 +8,17 @@ export const SOURCES = ["OPEN_METEO", "NASA_POWER"] as const;
 export type Source = (typeof SOURCES)[number];
 export const TRIGGERS = ["RAIN_BELOW", "RAIN_ABOVE"] as const;
 export type Trigger = (typeof TRIGGERS)[number];
-export const VERDICTS = ["STANDS", "USE_OTHER", "NO_RELIABLE_READING"] as const;
+export const VERDICTS = ["STANDS", "USE_OTHER", "USE_STATION", "NO_RELIABLE_READING"] as const;
 export type Verdict = (typeof VERDICTS)[number];
 export const POLICY_STATES = ["ACTIVE", "READ", "CONTESTED", "DECIDED", "APPEALED", "SETTLED", "VOID"] as const;
 export type PolicyState = (typeof POLICY_STATES)[number];
 
 export interface Periods { contest: number; response: number; appeal: number }
 
-/** create_product, then fund/withdraw/close and every sale amend it. */
+/** A payout step: the share of the payout a season past this threshold earns. */
+export interface Tier { threshold_tenths: number; pct: number }
+
+/** create_product, then deposit/withdraw/close and every sale and settlement amend it. */
 export interface Product {
   product_id: string;
   insurer: string;
@@ -24,7 +27,11 @@ export interface Product {
   lat: string;
   lon: string;
   trigger: Trigger;
+  /** The mildest step's threshold. */
   threshold_tenths: number;
+  tiers: Tier[];
+  /** A GHCN-Daily rain gauge id, or "". */
+  station: string;
   window_days: number;
   premium_wei: string;
   payout_wei: string;
@@ -37,9 +44,13 @@ export interface Product {
   /** The one season a replay product covers; "" for a forward product. */
   replay_start: string;
   created_at: string;
-  funded_wei: string;
+  /** Everything the pool holds: backers' capital and what it has earned. */
+  pool_wei: string;
+  shares_total: string;
   reserved_wei: string;
   paid_out_wei: string;
+  earned_wei: string;
+  backers: number;
   sold: number;
   active: number;
   open: boolean;
@@ -48,16 +59,42 @@ export interface Product {
 export type Series = [string, number | null][];
 export interface Summary { total_tenths: number; days_reported: number; days: number; complete: boolean; digest: string }
 
+/** read_index: what the named gauge said, and whether it could be used. */
+export type StationStatus = "NONE" | "NOT_READ" | "NO_DATA" | "TOO_FAR" | "INCOMPLETE" | "OK";
+export interface StationReading {
+  status: StationStatus;
+  id?: string;
+  km?: number | null;
+  series?: Series;
+  summary?: Summary;
+  grade?: number;
+}
+
 /** read_index */
 export interface Reading {
   at: string;
   selected: Source;
   other: Source;
+  /** The share of the payout, in percent, the selected reading earns. */
+  grade: number;
+  /** null when the other dataset is incomplete. */
+  other_grade: number | null;
   triggered: boolean;
   series: Record<Source, Series>;
   summaries: Record<Source, Summary>;
-  /** null when the other dataset is incomplete. */
   other_triggers: boolean | null;
+  station?: StationReading;
+}
+
+/** read_vegetation */
+export interface Vegetation {
+  at: string;
+  /** Year -> [[composite date, NDVI in ten-thousandths], ...]. */
+  seasons: Record<string, [string, number][]>;
+  window_mean: number;
+  baseline_mean: number | null;
+  anomaly_pct: number | null;
+  digest: string;
 }
 
 /** _contest / answer */
@@ -78,8 +115,8 @@ export interface Appeal extends Contest {
   result: "" | "MOVED" | "HELD" | "LAPSED";
 }
 
-/** decide_contest / decide_appeal. outcome: true pays the farmer, false does not, null voids. */
-export interface Decision { verdict: Verdict; outcome: boolean | null; round: number; against: Role[] }
+/** decide_contest / decide_appeal. outcome: the grade it pays, in percent, or null for void. */
+export interface Decision { verdict: Verdict; outcome: number | null; round: number; against: Role[] }
 
 /** _record */
 export interface Round {
@@ -92,7 +129,9 @@ export interface Round {
   digests: Record<Source, string>;
   totals: Record<Source, number>;
   by: Role;
-  outcome: boolean | null;
+  outcome: number | null;
+  station_digest?: string;
+  vegetation_digest?: string;
   evidence: { evidence_id: string; kind: "PHOTO" | "PAGE"; by: Role; stage: "CONTEST" | "APPEAL"; sha256: string }[];
 }
 
@@ -125,6 +164,9 @@ export interface Policy {
   lon: string;
   trigger: Trigger;
   threshold_tenths: number;
+  tiers: Tier[];
+  station: string;
+  vegetation: Vegetation | null;
   window_days: number;
   window_start: string;
   window_end: string;
@@ -139,7 +181,10 @@ export interface Policy {
   bought_at: string;
   held_wei: string;
   paid_farmer_wei: string;
-  paid_insurer_wei: string;
+  /** What the policy paid the insurer's side: the product's pool. */
+  paid_pool_wei: string;
+  /** The grade the policy settled at; null when void or not yet settled. */
+  grade_paid: number | null;
   reading: Reading | null;
   contest: Contest | null;
   appeal: Appeal | null;
@@ -162,7 +207,9 @@ export interface Policy {
 export interface ProductList { total: number; products: Product[] }
 export interface PolicyList { total: number; policies: Policy[] }
 export interface Balance { claimable: string; claimed: string }
-export interface Stats { product: string; policy: string; round: string; settled: string; paid_out: string; held_wei: string; paid_wei: string }
+export interface Stats { product: string; policy: string; round: string; settled: string; paid_out: string; held_wei: string; paid_wei: string; pool_wei: string }
+/** get_backer */
+export interface Backer { shares: string; shares_total: string; worth_wei: string; withdrawable_wei: string }
 export interface Config {
   ruleset: string;
   deployer: string;
@@ -178,4 +225,7 @@ export interface Config {
   bond_bps: number;
   statement_max: number;
   clause_max: number;
+  max_tiers: number;
+  station_max_km: number;
+  vegetation_prior_years: number;
 }

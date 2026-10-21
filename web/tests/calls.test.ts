@@ -15,7 +15,8 @@ const typeOk = (t: string, v: unknown) =>
   t === "string" ? typeof v === "string" : t === "bool" ? typeof v === "boolean" : t === "int" ? typeof v === "number" || typeof v === "bigint" : true;
 
 const composed = [
-  calls.createProduct("{}"), calls.fundProduct("pr-0001", 1n), calls.withdrawCapital("pr-0001", 1n),
+  calls.createProduct("{}"), calls.deposit("pr-0001", 1n), calls.withdraw("pr-0001", 1n),
+  calls.readVegetation("po-00001"),
   calls.closeProduct("pr-0001"), calls.buyPolicy("pr-0001", "2026-08-01", 1n), calls.readIndex("po-00001"),
   calls.voidUnread("po-00001"), calls.contest("po-00001", "words", 1n), calls.answer("po-00001", "words"),
   calls.decideContest("po-00001"), calls.lapseContest("po-00001"), calls.appeal("po-00001", "words", 1n),

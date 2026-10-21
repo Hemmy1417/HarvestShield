@@ -651,3 +651,48 @@ def returned(c, y):
         if case and case.get("result") in ("MOVED", "LAPSED"):
             out += int(case["bond_wei"])
     return -out
+
+
+# ── v2: a ground station and satellite vegetation ────────────────────────────
+
+STATION = "USW00014933"
+
+
+def station_url(module, station=STATION, start=START, n=DAYS):
+    s = _date.fromisoformat(start)
+    return module._station_url(station, s, s + _td(days=n - 1))
+
+
+def station_body(values, lat="9.10", lon="7.45", start=START):
+    """The NOAA archive's rows: one per reported day (None leaves a day out)."""
+    rows = [{"DATE": d, "STATION": STATION, "PRCP": str(v), "LATITUDE": lat, "LONGITUDE": lon,
+             "ELEVATION": "400.0"} for d, v in zip(days(start, len(values)), values) if v is not None]
+    return json.dumps(rows).encode()
+
+
+def serve_station(module, values, lat="9.10", lon="7.45", validator=None, station=STATION):
+    web_page(station_url(module, station), station_body(values, lat, lon),
+             validator=station_body(validator, lat, lon) if validator is not None else None)
+
+
+def veg_body(points):
+    """The MODIS subset JSON for [[date, ndvi], ...]."""
+    return json.dumps({"band": "250m_16_days_NDVI", "subset": [
+        {"calendar_date": d, "modis_date": "A0", "data": [v]} for d, v in points]}).encode()
+
+
+VEG = {"2026": [["2026-07-28", 3229], ["2026-08-13", 3860]],
+       "2025": [["2025-07-28", 4300], ["2025-08-13", 5100]],
+       "2024": [["2024-07-27", 4500], ["2024-08-12", 5300]],
+       "2023": [["2023-07-28", 4400], ["2023-08-13", 5000]]}
+
+
+def serve_vegetation(module, seasons=None, lat=LAT, lon=LON, start=START, n=DAYS, validator=None):
+    seasons = VEG if seasons is None else seasons
+    ws = _date.fromisoformat(start)
+    we = ws + _td(days=n - 1)
+    for year, pts in seasons.items():
+        a, b = module._season(ws, we, int(year))
+        alt = (validator or {}).get(year)
+        web_page(module._vegetation_url(lat, lon, a, b), veg_body(pts),
+                 validator=veg_body(alt) if alt is not None else None)

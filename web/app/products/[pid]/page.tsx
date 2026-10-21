@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * One product: its terms, how much of its funding is free, and the two acts it
- * offers. A farmer buys a policy; the insurer funds it, takes back unreserved
- * capital, or closes it to new sales.
+ * One product: its terms, its payout steps, its pool, and the acts it offers.
+ * A farmer buys a policy; anyone backs the pool for shares and redeems them
+ * from capital no policy has reserved; the insurer closes it to new sales.
  */
 import { use, useState } from "react";
 
@@ -12,9 +12,9 @@ import { Write } from "@/components/Write";
 import { sameAddress } from "@/lib/chain";
 import { calls } from "@/lib/calls";
 import {
-  day, genText, mm, policyName, productName, source, sourceLong, span, toWei, triggerSentence, triggerShort,
+  day, gen, genText, mm, policyName, productName, source, sourceLong, span, tiersSentence, toWei, triggerShort,
 } from "@/lib/present";
-import { getProduct, policiesOf } from "@/lib/read";
+import { getBacker, getProduct, policiesOf } from "@/lib/read";
 import { useChain } from "@/lib/useChain";
 import { useWallet } from "@/lib/wallet";
 import type { Product } from "@/lib/types";
@@ -26,10 +26,10 @@ function tomorrow(): string {
 function Buy({ p }: { p: Product }) {
   const [start, setStart] = useState(() => (p.replay ? p.replay_start : tomorrow()));
   const [bought, setBought] = useState("");
-  const free = BigInt(p.funded_wei) - BigInt(p.reserved_wei);
+  const free = BigInt(p.pool_wei) - BigInt(p.reserved_wei);
   const closed = !p.open ? "This product is closed to new policies."
     : p.sold >= p.capacity ? "Every policy this product offers has been sold."
-    : free < BigInt(p.payout_wei) ? "The insurer has not funded enough to reserve another payout."
+    : free < BigInt(p.payout_wei) ? "The pool does not hold enough unreserved capital to reserve another payout."
     : "";
   return (
     <section className="rounded-card bg-lagoon p-5 text-paper md:p-6">
@@ -46,7 +46,7 @@ function Buy({ p }: { p: Product }) {
             </span>
           </label>
           <div className="rounded-[12px] bg-paper p-4">
-            <p className="text-[14px]">You pay {genText(p.premium_wei)}, held by the contract until the policy settles. If the trigger fires you receive {genText(p.payout_wei)}.</p>
+            <p className="text-[14px]">You pay {genText(p.premium_wei)}, held by the contract until the policy settles. The policy pays {tiersSentence(p.trigger, p.tiers)}, out of a payout of {genText(p.payout_wei)}.</p>
             <div className="mt-3">
               <Write call={calls.buyPolicy(p.product_id, start, BigInt(p.premium_wei))} label="Buy the policy"
                 onDone={(out) => setBought(String(out?.policy_id ?? ""))} />
@@ -59,26 +59,54 @@ function Buy({ p }: { p: Product }) {
   );
 }
 
-function InsurerActs({ p }: { p: Product }) {
-  const [fund, setFund] = useState("");
+/** Shares to redeem for an amount of GEN at the pool's current value, rounded down. */
+function sharesFor(wei: bigint, pool: bigint, total: bigint): bigint {
+  return pool > 0n ? (wei * total) / pool : 0n;
+}
+
+function PoolActs({ p, address }: { p: Product; address: string }) {
+  const [put, setPut] = useState("");
   const [take, setTake] = useState("");
-  const fundWei = toWei(fund);
+  const putWei = toWei(put);
   const takeWei = toWei(take);
-  const free = BigInt(p.funded_wei) - BigInt(p.reserved_wei);
+  const me = useChain(`backer.${p.product_id}.${address}`, (f) => getBacker(p.product_id, address, f));
+  const b = me.data;
+  const takeShares = takeWei ? sharesFor(takeWei, BigInt(p.pool_wei), BigInt(p.shares_total)) : 0n;
+  const holds = !!b && BigInt(b.shares) > 0n;
   return (
     <Card className="flex flex-col gap-5">
+      <p className="h-sm">Back this pool</p>
+      <p className="text-[14px]">
+        The pool reserves every payout and earns every premium. Backers hold shares in it, so they share both the
+        earnings and the payouts in proportion to what they put in.
+      </p>
+      {holds ? (
+        <p className="rounded-[10px] bg-parchment p-3 text-[14px]">
+          Your shares are worth {genText(b.worth_wei)}; {genText(b.withdrawable_wei)} of that can be withdrawn now.
+        </p>
+      ) : null}
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[14px]">Add capital, in GEN</span>
+        <input className="field figure" inputMode="decimal" value={put} onChange={(e) => setPut(e.target.value)} placeholder="10" />
+        <Write call={calls.deposit(p.product_id, putWei ?? 0n)} label="Back the pool" disabled={!putWei || putWei <= 0n} />
+      </label>
+      {holds ? (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[14px]">Withdraw, in GEN (up to {gen(b.withdrawable_wei)})</span>
+          <input className="field figure" inputMode="decimal" value={take} onChange={(e) => setTake(e.target.value)} placeholder="1" />
+          <Write variant="secondary" call={calls.withdraw(p.product_id, takeShares)} label="Withdraw"
+            disabled={!takeWei || takeShares <= 0n || takeShares > BigInt(b.shares) || takeWei > BigInt(b.withdrawable_wei)} />
+        </label>
+      ) : null}
+    </Card>
+  );
+}
+
+function InsurerActs({ p }: { p: Product }) {
+  return (
+    <Card className="flex flex-col gap-3">
       <p className="h-sm">You publish this product</p>
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[14px]">Add funding, in GEN</span>
-        <input className="field figure" inputMode="decimal" value={fund} onChange={(e) => setFund(e.target.value)} placeholder="10" />
-        <Write call={calls.fundProduct(p.product_id, fundWei ?? 0n)} label="Fund it" disabled={!fundWei || fundWei <= 0n} />
-      </label>
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[14px]">Take back unreserved funding ({genText(free)} free)</span>
-        <input className="field figure" inputMode="decimal" value={take} onChange={(e) => setTake(e.target.value)} placeholder="1" />
-        <Write variant="secondary" call={calls.withdrawCapital(p.product_id, takeWei ?? 0n)} label="Withdraw"
-          disabled={!takeWei || takeWei <= 0n || takeWei > free} />
-      </label>
+      <p className="text-[14px]">You wrote its terms and answer for its side in a contest. Its capital comes from whoever backs the pool, you included.</p>
       {p.open ? <Write variant="secondary" call={calls.closeProduct(p.product_id)} label="Close to new policies" /> : <p className="muted text-[14px]">Closed to new policies.</p>}
     </Card>
   );
@@ -104,7 +132,7 @@ export default function ProductPage({ params }: { params: Promise<{ pid: string 
           {d.replay ? <Tag tone="lagoon">Replay of the season from {day(d.replay_start)}</Tag> : null}
         </div>
         <h1 className="h-display max-w-[16ch]">{d.crop}, {d.region}</h1>
-        <p className="max-w-[60ch] text-[18px]">Pays {genText(d.payout_wei)} when there is {triggerSentence(d.trigger, d.threshold_tenths)} over a {d.window_days}-day window.</p>
+        <p className="max-w-[60ch] text-[18px]">Out of a payout of {genText(d.payout_wei)}, pays {tiersSentence(d.trigger, d.tiers)}, over a {d.window_days}-day window.</p>
       </header>
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_380px]">
         <div className="flex flex-col gap-6">
@@ -112,10 +140,11 @@ export default function ProductPage({ params }: { params: Promise<{ pid: string 
             <dl className="grid gap-4 text-[15px] md:grid-cols-2">
               <div><dt className="label">Premium</dt><dd className="figure mt-1">{genText(d.premium_wei)}</dd></div>
               <div><dt className="label">Payout</dt><dd className="figure mt-1">{genText(d.payout_wei)}</dd></div>
-              <div><dt className="label">Threshold</dt><dd className="mt-1">{mm(d.threshold_tenths)} over {d.window_days} days</dd></div>
+              <div><dt className="label">Payout steps</dt><dd className="mt-1">{d.tiers.map((t) => `${t.pct}% at ${mm(t.threshold_tenths)}`).join(", ")}</dd></div>
               <div><dt className="label">Point</dt><dd className="figure mt-1">{d.lat}, {d.lon}</dd></div>
               <div><dt className="label">Primary dataset</dt><dd className="mt-1">{sourceLong(d.primary)}</dd></div>
               <div><dt className="label">Backup dataset</dt><dd className="mt-1">{sourceLong(d.backup)}</dd></div>
+              <div><dt className="label">Rain gauge</dt><dd className="mt-1">{d.station ? `NOAA station ${d.station}, read beside the datasets if within 50 km` : "None named"}</dd></div>
               <div><dt className="label">Contest, answer, appeal</dt><dd className="mt-1">{span(d.periods.contest)}, {span(d.periods.response)}, {span(d.periods.appeal)}</dd></div>
               <div><dt className="label">Sold</dt><dd className="mt-1">{d.sold} of {d.capacity}</dd></div>
             </dl>
@@ -123,12 +152,12 @@ export default function ProductPage({ params }: { params: Promise<{ pid: string 
           <Card>
             <p className="label">The dispute clause</p>
             <p className="mt-2 text-[16px]">“{d.dispute_clause}”</p>
-            <p className="muted mt-3 text-[14px]">If {source(d.primary)} and {source(d.backup)} put a season on opposite sides of the threshold, this is the rule the validators apply.</p>
+            <p className="muted mt-3 text-[14px]">If {source(d.primary)}, {source(d.backup)}{d.station ? " and the rain gauge" : ""} give a season different grades, this is the rule the validators apply.</p>
           </Card>
           <Card>
-            <p className="label">Funding</p>
+            <p className="label">The pool</p>
             <p className="mt-2 text-[15px]">
-              {genText(d.funded_wei)} funded, {genText(d.reserved_wei)} reserved for {d.active} live {d.active === 1 ? "policy" : "policies"}, {genText(d.paid_out_wei)} paid out so far.
+              {genText(d.pool_wei)} held for {d.backers} {d.backers === 1 ? "backer" : "backers"}: {genText(d.reserved_wei)} reserved for {d.active} live {d.active === 1 ? "policy" : "policies"}. {genText(d.earned_wei)} earned and {genText(d.paid_out_wei)} paid out so far.
             </p>
           </Card>
           {held.length ? (
@@ -140,6 +169,7 @@ export default function ProductPage({ params }: { params: Promise<{ pid: string 
         </div>
         <div className="flex flex-col gap-4 lg:sticky lg:top-24">
           {isInsurer ? <InsurerActs p={d} /> : <Buy p={d} />}
+          {wallet.address ? <PoolActs p={d} address={wallet.address} /> : null}
         </div>
       </div>
     </div>
